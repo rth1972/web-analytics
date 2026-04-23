@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model PageView {
+  id          String   @id @default(uuid())
+  websiteId   String
+  page        String
+  referrer    String?
+  userAgent   String?
+  country     String?
+  city        String?
+  device      String?
+  browser     String?
+  os          String?
+  screenSize  String?
+  sessionId   String
+  timestamp   DateTime @default(now())
+  
+  @@index([websiteId])
+  @@index([timestamp])
+  @@index([sessionId])
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  websiteId   String
+  name        String
+  category    String?
+  data        String?
+  sessionId   String
+  timestamp   DateTime @default(now())
+  
+  @@index([websiteId])
+  @@index([timestamp])
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  websiteId   String
+  fingerprint String?
+  country     String?
+  city        String?
+  device      String?
+  browser     String?
+  os          String?
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  pageViews   Int      @default(0)
+  
+  @@index([websiteId])
+  @@index([startTime])
+}
+
+model Website {
+  id          String   @id @default(uuid())
+  name        String
+  domain      String
+  createdAt   DateTime @default(now())
+  isActive    Boolean  @default(true)
+  
+  @@index([id])
+}

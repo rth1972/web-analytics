@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tracking Pixel</title>
+  <style>
+    body { margin: 0; padding: 0; }
+    img { display: none; }
+  </style>
+</head>
+<body>
+  <img src="/api/track.gif" alt="" width="1" height="1">
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var websiteId = params.get('wid');
+      var page = params.get('p') || '/';
+      var ref = params.get('r') || document.referrer;
+      
+      fetch('/api/analytics/track/pageview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          websiteId: websiteId,
+          page: page,
+          referrer: ref,
+          userAgent: navigator.userAgent,
+          screenSize: screen.width + 'x' + screen.height
+        })
+      }).catch(function() {});
+    })();
+  </script>
+</body>
+</html>

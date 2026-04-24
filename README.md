@@ -96,9 +96,25 @@ Create a `.env.local` file in the `frontend/` directory:
 
 ```env
 NEXT_PUBLIC_API_URL=https://analytics.yourdomain.com
+NEXTAUTH_SECRET=your-secret-here
+NEXTAUTH_URL=https://dashboard.yourdomain.com
+AUTH_USERNAME=your-username
+AUTH_PASSWORD=your-password
 ```
 
-Replace `https://analytics.yourdomain.com` with the public URL of your backend.
+Replace the values with your own:
+
+- `NEXT_PUBLIC_API_URL` — public URL of your backend
+- `NEXTAUTH_SECRET` — a random secret used to sign session tokens, generate one with `openssl rand -base64 32`
+- `NEXTAUTH_URL` — public URL of your dashboard
+- `AUTH_USERNAME` — the username you want to log in with
+- `AUTH_PASSWORD` — the password you want to log in with
+
+To change your username or password later, update `.env.local` and restart the dashboard:
+
+```bash
+pm2 restart analytics-frontend
+```
 
 ```bash
 npm run build

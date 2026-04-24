@@ -1,10 +1,9 @@
 'use client';
 
-import type { Metadata } from 'next';
 import './globals.css';
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
-import { Sun, Moon, LayoutDashboard, Globe, Zap } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Sun, Moon, LayoutDashboard, Globe, Zap, LogOut } from 'lucide-react';
 
 function ThemeToggle() {
   const [dark, setDark] = useState(false);
@@ -53,29 +52,61 @@ function NavLink({ href, icon, label }: { href: string; icon: React.ReactNode; l
   );
 }
 
+function Sidebar() {
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  };
+
+  return (
+    <aside className="w-64 shrink-0 border-r border-[var(--border)] bg-[var(--card)] p-6 flex flex-col h-screen sticky top-0">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-[var(--primary)]">Analytics</h1>
+          <p className="text-sm text-[var(--muted-foreground)]">Web Analytics</p>
+        </div>
+        <ThemeToggle />
+      </div>
+      <nav className="space-y-2">
+        <NavLink href="/" icon={<LayoutDashboard className="h-4 w-4" />} label="Dashboard" />
+        <NavLink href="/websites" icon={<Globe className="h-4 w-4" />} label="Websites" />
+        <NavLink href="/realtime" icon={<Zap className="h-4 w-4" />} label="Real-time" />
+      </nav>
+      <div className="mt-auto pt-6 border-t border-[var(--border)]">
+        <button
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)] transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </button>
+      </div>
+    </aside>
+  );
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isLoginPage = pathname === '/login';
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-[var(--background)] antialiased">
-        <div className="flex min-h-screen">
-          <aside className="w-64 border-r border-[var(--border)] bg-[var(--card)] p-6 flex flex-col">
-            <div className="mb-8 flex items-center justify-between">
-              <div>
-                <h1 className="text-xl font-bold text-[var(--primary)]">Analytics</h1>
-                <p className="text-sm text-[var(--muted-foreground)]">Web Analytics</p>
-              </div>
-              <ThemeToggle />
-            </div>
-            <nav className="space-y-2">
-              <NavLink href="/" icon={<LayoutDashboard className="h-4 w-4" />} label="Dashboard" />
-              <NavLink href="/websites" icon={<Globe className="h-4 w-4" />} label="Websites" />
-              <NavLink href="/realtime" icon={<Zap className="h-4 w-4" />} label="Real-time" />
-            </nav>
-          </aside>
-          <main className="flex-1 p-8">
-            {children}
-          </main>
-        </div>
+        {isLoginPage ? (
+          // Login page — full screen, no sidebar
+          <>{children}</>
+        ) : (
+          // Dashboard — sidebar + main
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <main className="flex-1 overflow-auto p-8">
+              {children}
+            </main>
+          </div>
+        )}
       </body>
     </html>
   );

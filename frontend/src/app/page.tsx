@@ -29,6 +29,15 @@ interface Website {
   domain: string;
 }
 
+const countryFlag = (code: string) => {
+  if (!code || code === 'Unknown') return '🌐';
+  return code
+    .toUpperCase()
+    .split('')
+    .map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0)))
+    .join('');
+};
+
 const fmt = (n: number) => {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
   if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
@@ -279,7 +288,39 @@ export default function Dashboard() {
       </div>
 
       {/* Countries */}
-      <BreakdownTable title="Countries" rows={countries} keyCol="country" valCol="visitors" />
+      {/* Countries */}
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+        <h2 className="mb-4 text-lg font-semibold">Countries</h2>
+        {countries.length === 0 ? (
+          <p className="text-sm text-[var(--muted-foreground)]">No data for this period.</p>
+        ) : (
+          <div className="space-y-3">
+            {(() => {
+              const total = countries.reduce((s, r) => s + r.visitors, 0);
+              return countries.map((row, i) => {
+                const pct = total > 0 ? Math.round((row.visitors / total) * 100) : 0;
+                return (
+                  <div key={i}>
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 text-[var(--muted-foreground)]">{i + 1}</span>
+                        <span className="text-base leading-none">{countryFlag(row.country)}</span>
+                        <span className="font-medium">{row.country || 'Unknown'}</span>
+                      </div>
+                      <span className="text-[var(--muted-foreground)]">
+                        {fmt(row.visitors)} <span className="text-xs">({pct}%)</span>
+                      </span>
+                    </div>
+                    <div className="h-1 w-full rounded-full bg-[var(--muted)]">
+                      <div className="h-1 rounded-full bg-[var(--primary)]" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -80,18 +80,19 @@
   }
 
   function trackPageView() {
-    const data = {
-      websiteId: WEBSITE_ID,
-      page: window.location.pathname,
-      referrer: document.referrer || '',
-      userAgent: navigator.userAgent,
-      device: getDeviceType(),
-      browser: getBrowser(),
-      os: getOS(),
-      screenSize: `${window.screen.width}x${window.screen.height}`,
-      sessionId: sessionId,
-      timestamp: new Date().toISOString(),
-    };
+  const data = {
+    websiteId: WEBSITE_ID,
+    page: window.location.pathname,
+    referrer: document.referrer || '',
+    userAgent: navigator.userAgent,
+    device: getDeviceType(),
+    browser: getBrowser(),
+    os: getOS(),
+    screenSize: `${window.screen.width}x${window.screen.height}`,
+    sessionId: sessionId,
+    timestamp: new Date().toISOString(),
+    ipAddress: null, // Will be set by server if not provided
+  };
 
     fetch(`${API_URL}/api/analytics/track/pageview`, {
       method: 'POST',

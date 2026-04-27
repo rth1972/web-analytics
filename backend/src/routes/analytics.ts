@@ -15,6 +15,7 @@ interface PageViewRequest {
   browser?: string;
   os?: string;
   screenSize?: string;
+  ipAddress?: string;
   sessionId?: string;
 }
 
@@ -77,6 +78,7 @@ router.post('/track/pageview', async (req, res) => {
           browser: body.browser,
           os: body.os,
           screenSize: body.screenSize,
+          ipAddress: ip,
           sessionId,
           timestamp: new Date(),
         },
@@ -171,6 +173,59 @@ router.get('/data/:websiteId', async (req, res) => {
   } catch (error) {
     console.error('Data fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch data' });
+  }
+});
+
+router.get('/data/:websiteId/ips', async (req, res) => {
+  try {
+    const prisma = (req as any).prisma;
+    const { websiteId } = req.params;
+    const { start, end, country } = req.query;
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // default: 7 days
+
+    const where: any = { websiteId, timestamp: { gte: since } };
+    
+    if (country && country !== 'all') {
+      where.country = country as string;
+    }
+
+    const visitors = await prisma.pageView.findMany({
+      where,
+      select: {
+        ipAddress: true,
+        country: true,
+        city: true,
+        sessionId: true,
+        timestamp: true,
+      },
+      orderBy: { timestamp: 'desc' },
+    });
+
+    // Group by IP
+    const ipMap = new Map<string, { country: string | null; city: string | null; count: number }>();
+    for (const v of visitors) {
+      const ip = v.ipAddress || 'Unknown';
+      const existing = ipMap.get(ip);
+      if (existing) {
+        existing.count++;
+      } else {
+        ipMap.set(ip, {
+          country: v.country,
+          city: v.city,
+          count: 1,
+        });
+      }
+    }
+
+    const result = Array.from(ipMap.entries()).map(([ipAddress, data]) => ({
+      ipAddress,
+      ...data,
+    }));
+
+    res.json(result);
+  } catch (error) {
+    console.error('IPs fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch visitor IPs' });
   }
 });
 

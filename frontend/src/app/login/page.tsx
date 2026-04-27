@@ -1,149 +1,142 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { BarChart2, Eye, Globe, Zap, Lock, User, AlertCircle } from 'lucide-react';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3456';
 
-  const handleSubmit = async (e: React.FormEvent) => {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const from = searchParams.get('from') || '/';
+
+  const [username,    setUsername]    = useState('');
+  const [password,    setPassword]    = useState('');
+  const [totp,        setTotp]        = useState('');
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [error,       setError]       = useState('');
+  const [loading,     setLoading]     = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, totpCode: requires2FA ? totp : undefined }),
+      });
 
-    setLoading(false);
+      const data = await res.json();
 
-    if (res.ok) {
-      window.location.href = '/';
-    } else {
-      setError('Invalid username or password.');
+      if (!res.ok) {
+        setError(data.error || 'Login failed.');
+        setLoading(false);
+        return;
+      }
+
+      if (data.requires2FA) {
+        setRequires2FA(true);
+        setLoading(false);
+        return;
+      }
+
+      // Store in cookie (for Next.js middleware) AND localStorage (for api client)
+      const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
+      document.cookie = `auth-token=${data.token}; path=/; expires=${expires}; SameSite=Strict`;
+      try { localStorage.setItem('auth-token', data.token); } catch {}
+
+      // Full page reload so middleware picks up the new cookie
+      const destination = !from || from === '/login' ? '/' : from;
+      window.location.href = destination;
+    } catch {
+      setError('Could not connect to server. Please try again.');
+      setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="flex min-h-screen bg-[var(--background)]">
-
-      {/* Left panel — branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-[var(--primary)] p-12 text-white">
-        <div className="flex items-center gap-3">
-          <BarChart2 className="h-7 w-7" />
-          <span className="text-xl font-bold tracking-tight">Web Analytics</span>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--primary)] flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold">Web Analytics</h1>
+          <p className="text-[var(--muted-foreground)] mt-1 text-sm">
+            {requires2FA ? 'Enter your 2FA code' : 'Sign in to your account'}
+          </p>
         </div>
 
-        <div className="space-y-8">
-          <div>
-            <h1 className="text-4xl font-bold leading-tight">
-              Know your audience.<br />Own your data.
-            </h1>
-            <p className="mt-4 text-indigo-200 text-lg leading-relaxed">
-              Self-hosted, privacy-focused analytics. No third parties,
-              no cookies, just clean insights about your visitors.
-            </p>
-          </div>
+        <form onSubmit={handleSubmit} className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 space-y-5 shadow-sm">
+          {error && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {error}
+            </div>
+          )}
 
-          <div className="space-y-4">
-            {[
-              { icon: <Eye className="h-5 w-5" />,   label: 'Real-time visitor tracking' },
-              { icon: <Globe className="h-5 w-5" />,  label: 'Country & device breakdown' },
-              { icon: <Zap className="h-5 w-5" />,    label: 'Custom event analytics' },
-            ].map(({ icon, label }) => (
-              <div key={label} className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
-                  {icon}
-                </div>
-                <span className="text-indigo-100">{label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <p className="text-sm text-indigo-300">
-          © {new Date().getFullYear()} Robin te Hofstee
-        </p>
-      </div>
-
-      {/* Right panel — login form */}
-      <div className="flex w-full lg:w-1/2 flex-col items-center justify-center p-8">
-        <div className="w-full max-w-sm space-y-8">
-
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2 lg:hidden">
-            <BarChart2 className="h-6 w-6 text-[var(--primary)]" />
-            <span className="text-lg font-bold text-[var(--primary)]">Web Analytics</span>
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-bold">Sign in</h2>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              Enter your credentials to access the dashboard
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-1.5">
-              <label htmlFor="username" className="text-sm font-medium">
-                Username
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
+          {!requires2FA ? (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Username</label>
                 <input
-                  id="username"
-                  type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  placeholder="robin30"
-                  required
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] pl-10 pr-4 py-2.5 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 transition-colors"
+                  type="text" required autoFocus autoComplete="username"
+                  value={username} onChange={e => setUsername(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                  placeholder="your_username"
                 />
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Password</label>
                 <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  type="password" required autoComplete="current-password"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                   placeholder="••••••••"
-                  required
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] pl-10 pr-4 py-2.5 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 transition-colors"
                 />
               </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Authenticator Code</label>
+              <input
+                type="text" required autoFocus inputMode="numeric"
+                maxLength={6} value={totp} onChange={e => setTotp(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--background)] text-sm text-center tracking-[0.5em] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                placeholder="000000"
+              />
+              <button type="button"
+                onClick={() => { setRequires2FA(false); setTotp(''); setError(''); }}
+                className="mt-2 text-xs text-[var(--muted-foreground)] hover:underline">
+                ← Back to login
+              </button>
             </div>
+          )}
 
-            {error && (
-              <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2.5 text-sm text-red-500">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
-              </div>
-            )}
+          <button type="submit" disabled={loading}
+            className="w-full py-2.5 rounded-xl bg-[var(--primary)] text-white font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
+            {loading ? 'Signing in…' : requires2FA ? 'Verify' : 'Sign in'}
+          </button>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-[var(--primary)] py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-            >
-              {loading ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
-        </div>
+          {!requires2FA && (
+            <p className="text-center text-sm text-[var(--muted-foreground)]">
+              Don&apos;t have an account?{' '}
+              <a href="/register" className="text-[var(--primary)] hover:underline font-medium">Sign up</a>
+            </p>
+          )}
+        </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

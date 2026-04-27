@@ -5,8 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar,
 } from 'recharts';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3456';
+import { api } from '@/lib/api';
 
 interface Stats {
   pageViews: number;
@@ -22,20 +21,13 @@ interface Referrer   { referrer: string; visits: number }
 interface DeviceRow  { device: string; count: number }
 interface BrowserRow { browser: string; count: number }
 interface CountryRow { country: string; visitors: number }
+interface Website    { id: string; name: string; domain: string }
 
-interface Website {
-  id: string;
-  name: string;
-  domain: string;
-}
+const toArray = <T,>(val: unknown): T[] => Array.isArray(val) ? (val as T[]) : [];
 
 const countryFlag = (code: string) => {
   if (!code || code === 'Unknown') return '🌐';
-  return code
-    .toUpperCase()
-    .split('')
-    .map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0)))
-    .join('');
+  return code.toUpperCase().split('').map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('');
 };
 
 const fmt = (n: number) => {
@@ -45,10 +37,8 @@ const fmt = (n: number) => {
 };
 
 const fmtDuration = (s: number) => {
-  if (s < 60)  return `${s}s`;
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}m ${r}s`;
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
 };
 
 function StatCard({ label, value, sub, subColor = 'text-green-500' }: {
@@ -63,12 +53,8 @@ function StatCard({ label, value, sub, subColor = 'text-green-500' }: {
   );
 }
 
-function BreakdownTable<T>({ title, rows, keyCol, valCol, valLabel }: {
-  title: string;
-  rows: T[];
-  keyCol: keyof T;
-  valCol: keyof T;
-  valLabel?: string;
+function BreakdownTable<T>({ title, rows, keyCol, valCol }: {
+  title: string; rows: T[]; keyCol: keyof T; valCol: keyof T;
 }) {
   if (!rows.length) return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
@@ -95,10 +81,7 @@ function BreakdownTable<T>({ title, rows, keyCol, valCol, valLabel }: {
                 </span>
               </div>
               <div className="h-1 w-full rounded-full bg-[var(--muted)]">
-                <div
-                  className="h-1 rounded-full bg-[var(--primary)]"
-                  style={{ width: `${pct}%` }}
-                />
+                <div className="h-1 rounded-full bg-[var(--primary)]" style={{ width: `${pct}%` }} />
               </div>
             </div>
           );
@@ -109,25 +92,25 @@ function BreakdownTable<T>({ title, rows, keyCol, valCol, valLabel }: {
 }
 
 export default function Dashboard() {
-  const [stats, setStats]               = useState<Stats | null>(null);
-  const [websites, setWebsites]         = useState<Website[]>([]);
-  const [selectedWebsite, setSelected]  = useState('');
-  const [period, setPeriod]             = useState('7d');
-  const [loading, setLoading]           = useState(true);
-  const [statsLoading, setStatsLoading] = useState(false);
-
-  const [topPages,   setTopPages]   = useState<TopPage[]>([]);
-  const [referrers,  setReferrers]  = useState<Referrer[]>([]);
-  const [devices,    setDevices]    = useState<DeviceRow[]>([]);
-  const [browsers,   setBrowsers]   = useState<BrowserRow[]>([]);
-  const [countries,  setCountries]  = useState<CountryRow[]>([]);
+  const [stats,          setStats]          = useState<Stats | null>(null);
+  const [websites,       setWebsites]       = useState<Website[]>([]);
+  const [selectedWebsite, setSelected]      = useState('');
+  const [period,         setPeriod]         = useState('7d');
+  const [loading,        setLoading]        = useState(true);
+  const [statsLoading,   setStatsLoading]   = useState(false);
+  const [topPages,       setTopPages]       = useState<TopPage[]>([]);
+  const [referrers,      setReferrers]      = useState<Referrer[]>([]);
+  const [devices,        setDevices]        = useState<DeviceRow[]>([]);
+  const [browsers,       setBrowsers]       = useState<BrowserRow[]>([]);
+  const [countries,      setCountries]      = useState<CountryRow[]>([]);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/websites`)
+    api.get('/api/websites')
       .then(r => r.json())
-      .then((data: Website[]) => {
-        setWebsites(data);
-        if (data.length > 0) setSelected(data[0].id);
+      .then((data: unknown) => {
+        const list = toArray<Website>(data);
+        setWebsites(list);
+        if (list.length > 0) setSelected(list[0].id);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -137,23 +120,24 @@ export default function Dashboard() {
     if (!selectedWebsite) return;
     setStatsLoading(true);
     const q = `?period=${period}`;
-    const base = `${API_URL}/api/dashboard/${selectedWebsite}`;
+    const base = `/api/dashboard/${selectedWebsite}`;
 
     const [s, p, r, d, b, c] = await Promise.allSettled([
-      fetch(`${base}/stats${q}`).then(x => x.json()),
-      fetch(`${base}/pages${q}`).then(x => x.json()),
-      fetch(`${base}/referrers${q}`).then(x => x.json()),
-      fetch(`${base}/devices${q}`).then(x => x.json()),
-      fetch(`${base}/browsers${q}`).then(x => x.json()),
-      fetch(`${base}/countries${q}`).then(x => x.json()),
+      api.get(`${base}/stats${q}`).then(x => x.json()),
+      api.get(`${base}/pages${q}`).then(x => x.json()),
+      api.get(`${base}/referrers${q}`).then(x => x.json()),
+      api.get(`${base}/devices${q}`).then(x => x.json()),
+      api.get(`${base}/browsers${q}`).then(x => x.json()),
+      api.get(`${base}/countries${q}`).then(x => x.json()),
     ]);
 
     if (s.status === 'fulfilled') setStats(s.value);
-    if (p.status === 'fulfilled') setTopPages(p.value);
-    if (r.status === 'fulfilled') setReferrers(r.value);
-    if (d.status === 'fulfilled') setDevices(d.value);
-    if (b.status === 'fulfilled') setBrowsers(b.value);
-    if (c.status === 'fulfilled') setCountries(c.value);
+    if (p.status === 'fulfilled') setTopPages(toArray<TopPage>(p.value));
+    if (r.status === 'fulfilled') setReferrers(toArray<Referrer>(r.value));
+    if (d.status === 'fulfilled') setDevices(toArray<DeviceRow>(d.value));
+    if (b.status === 'fulfilled') setBrowsers(toArray<BrowserRow>(b.value));
+    if (c.status === 'fulfilled') setCountries(toArray<CountryRow>(c.value));
+
     setStatsLoading(false);
   }, [selectedWebsite, period]);
 
@@ -168,10 +152,7 @@ export default function Dashboard() {
   if (websites.length === 0) return (
     <div className="flex h-full flex-col items-center justify-center gap-4">
       <p className="text-[var(--muted-foreground)]">No websites added yet.</p>
-      <a
-        href="/websites"
-        className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-      >
+      <a href="/websites" className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90">
         Add your first website →
       </a>
     </div>
@@ -186,29 +167,19 @@ export default function Dashboard() {
           <p className="text-[var(--muted-foreground)]">Overview of your website analytics</p>
         </div>
         <div className="flex items-center gap-3">
-          {statsLoading && (
-            <span className="text-xs text-[var(--muted-foreground)]">Refreshing…</span>
-          )}
-          <select
-            value={selectedWebsite}
-            onChange={e => setSelected(e.target.value)}
-            className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-          >
-            {websites.map(w => (
-              <option key={w.id} value={w.id}>{w.name}</option>
-            ))}
+          {statsLoading && <span className="text-xs text-[var(--muted-foreground)]">Refreshing…</span>}
+          <select value={selectedWebsite} onChange={e => setSelected(e.target.value)}
+            className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm">
+            {websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
           <div className="flex rounded-lg border border-[var(--border)] bg-[var(--card)] p-1">
             {(['24h', '7d', '30d'] as const).map(p => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
+              <button key={p} onClick={() => setPeriod(p)}
                 className={`rounded-md px-3 py-1 text-sm transition-colors ${
                   period === p
                     ? 'bg-[var(--primary)] text-white'
                     : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
-                }`}
-              >
+                }`}>
                 {p}
               </button>
             ))}
@@ -218,21 +189,14 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Page Views"       value={fmt(stats?.pageViews      ?? 0)} />
-        <StatCard label="Unique Visitors"  value={fmt(stats?.uniqueVisitors ?? 0)} />
-        <StatCard label="Events"           value={fmt(stats?.events         ?? 0)} />
-        <StatCard
-          label="Bounce Rate"
-          value={`${stats?.bounceRate ?? 0}%`}
+        <StatCard label="Page Views"      value={fmt(stats?.pageViews      ?? 0)} />
+        <StatCard label="Unique Visitors" value={fmt(stats?.uniqueVisitors ?? 0)} />
+        <StatCard label="Events"          value={fmt(stats?.events         ?? 0)} />
+        <StatCard label="Bounce Rate"     value={`${stats?.bounceRate ?? 0}%`}
           sub={stats ? (stats.bounceRate < 50 ? 'Good' : stats.bounceRate < 70 ? 'Average' : 'High') : undefined}
-          subColor={stats ? (stats.bounceRate < 50 ? 'text-green-500' : stats.bounceRate < 70 ? 'text-yellow-500' : 'text-red-500') : ''}
-        />
-        <StatCard
-          label="Avg. Session"
-          value={fmtDuration(stats?.avgDuration ?? 0)}
-          sub="duration"
-          subColor="text-[var(--muted-foreground)]"
-        />
+          subColor={stats ? (stats.bounceRate < 50 ? 'text-green-500' : stats.bounceRate < 70 ? 'text-yellow-500' : 'text-red-500') : ''} />
+        <StatCard label="Avg. Session"    value={fmtDuration(stats?.avgDuration ?? 0)}
+          sub="duration" subColor="text-[var(--muted-foreground)]" />
       </div>
 
       {/* Traffic chart */}
@@ -259,8 +223,8 @@ export default function Dashboard() {
 
       {/* Top pages + Referrers */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <BreakdownTable title="Top Pages"       rows={topPages}  keyCol="page"     valCol="views"   />
-        <BreakdownTable title="Traffic Sources" rows={referrers} keyCol="referrer" valCol="visits"  />
+        <BreakdownTable title="Top Pages"       rows={topPages}  keyCol="page"     valCol="views"  />
+        <BreakdownTable title="Traffic Sources" rows={referrers} keyCol="referrer" valCol="visits" />
       </div>
 
       {/* Devices + Browsers */}
@@ -283,21 +247,19 @@ export default function Dashboard() {
             <p className="text-sm text-[var(--muted-foreground)]">No data for this period.</p>
           )}
         </div>
-
         <BreakdownTable title="Browsers" rows={browsers} keyCol="browser" valCol="count" />
       </div>
 
-      {/* Countries */}
       {/* Countries */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
         <h2 className="mb-4 text-lg font-semibold">Countries</h2>
         {countries.length === 0 ? (
           <p className="text-sm text-[var(--muted-foreground)]">No data for this period.</p>
-        ) : (
-          <div className="space-y-3">
-            {(() => {
-              const total = countries.reduce((s, r) => s + r.visitors, 0);
-              return countries.map((row, i) => {
+        ) : (() => {
+          const total = countries.reduce((s, r) => s + r.visitors, 0);
+          return (
+            <div className="space-y-3">
+              {countries.map((row, i) => {
                 const pct = total > 0 ? Math.round((row.visitors / total) * 100) : 0;
                 return (
                   <div key={i}>
@@ -305,7 +267,10 @@ export default function Dashboard() {
                       <div className="flex items-center gap-2">
                         <span className="w-5 text-[var(--muted-foreground)]">{i + 1}</span>
                         <span className="text-base leading-none">{countryFlag(row.country)}</span>
-                        <span className="font-medium">{row.country || 'Unknown'}</span>
+                        <a href={`/visitor-ips?websiteId=${selectedWebsite}&country=${encodeURIComponent(row.country)}&period=${period}`}
+                          className="font-medium hover:text-[var(--primary)] hover:underline cursor-pointer">
+                          {row.country || 'Unknown'}
+                        </a>
                       </div>
                       <span className="text-[var(--muted-foreground)]">
                         {fmt(row.visitors)} <span className="text-xs">({pct}%)</span>
@@ -316,10 +281,10 @@ export default function Dashboard() {
                     </div>
                   </div>
                 );
-              });
-            })()}
-          </div>
-        )}
+              })}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

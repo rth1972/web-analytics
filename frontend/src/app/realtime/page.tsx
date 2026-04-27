@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Activity, Users, Eye, Zap } from 'lucide-react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3456';
+import { api } from '@/lib/api';
 
 interface RealtimeData {
   activeVisitors: number;
@@ -32,6 +31,17 @@ interface Website {
   domain: string;
 }
 
+function isValidRealtimeData(val: unknown): val is RealtimeData {
+  return (
+    typeof val === 'object' &&
+    val !== null &&
+    'activeVisitors' in val &&
+    Array.isArray((val as any).recentPageViews) &&
+    Array.isArray((val as any).recentEvents) &&
+    Array.isArray((val as any).topPages)
+  );
+}
+
 function timeAgo(ts: string) {
   const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
   if (diff < 5)  return 'just now';
@@ -40,18 +50,20 @@ function timeAgo(ts: string) {
 }
 
 export default function RealtimePage() {
-  const [websites, setWebsites]           = useState<Website[]>([]);
-  const [selectedWebsite, setSelected]    = useState('');
-  const [data, setData]                   = useState<RealtimeData | null>(null);
-  const [loading, setLoading]             = useState(true);
-  const [lastUpdated, setLastUpdated]     = useState<Date | null>(null);
+  const [websites,        setWebsites]   = useState<Website[]>([]);
+  const [selectedWebsite, setSelected]   = useState('');
+  const [data,            setData]       = useState<RealtimeData | null>(null);
+  const [error,           setError]      = useState('');
+  const [loading,         setLoading]    = useState(true);
+  const [lastUpdated,     setLastUpdated]= useState<Date | null>(null);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/websites`)
+    api.get('/api/websites')
       .then(r => r.json())
-      .then((ws: Website[]) => {
-        setWebsites(ws);
-        if (ws.length > 0) setSelected(ws[0].id);
+      .then((ws: unknown) => {
+        const list = Array.isArray(ws) ? (ws as Website[]) : [];
+        setWebsites(list);
+        if (list.length > 0) setSelected(list[0].id);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -60,11 +72,19 @@ export default function RealtimePage() {
   const fetchRealtime = useCallback(async () => {
     if (!selectedWebsite) return;
     try {
-      const res = await fetch(`${API_URL}/api/dashboard/${selectedWebsite}/realtime`);
+      const res  = await api.get(`/api/dashboard/${selectedWebsite}/realtime`);
       const json = await res.json();
-      setData(json);
-      setLastUpdated(new Date());
-    } catch {}
+      if (!res.ok || !isValidRealtimeData(json)) {
+        setError((json as any)?.error || `Server error ${res.status}`);
+        setData(null);
+      } else {
+        setData(json);
+        setError('');
+        setLastUpdated(new Date());
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to connect to server');
+    }
   }, [selectedWebsite]);
 
   useEffect(() => {
@@ -109,17 +129,21 @@ export default function RealtimePage() {
             </span>
             Live
           </span>
-          <select
-            value={selectedWebsite}
-            onChange={e => setSelected(e.target.value)}
-            className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-          >
+          <select value={selectedWebsite} onChange={e => setSelected(e.target.value)}
+            className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm">
             {websites.map(w => (
               <option key={w.id} value={w.id}>{w.name}</option>
             ))}
           </select>
         </div>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
+          Backend error: {error}
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-3">
@@ -141,7 +165,7 @@ export default function RealtimePage() {
             </div>
             <div>
               <div className="text-sm text-[var(--muted-foreground)]">Page Views (5m)</div>
-              <div className="text-3xl font-bold">{data?.recentPageViews.length ?? 0}</div>
+              <div className="text-3xl font-bold">{data?.recentPageViews?.length ?? 0}</div>
             </div>
           </div>
         </div>
@@ -152,7 +176,7 @@ export default function RealtimePage() {
             </div>
             <div>
               <div className="text-sm text-[var(--muted-foreground)]">Events (5m)</div>
-              <div className="text-3xl font-bold">{data?.recentEvents.length ?? 0}</div>
+              <div className="text-3xl font-bold">{data?.recentEvents?.length ?? 0}</div>
             </div>
           </div>
         </div>
@@ -174,7 +198,7 @@ export default function RealtimePage() {
                   <div className="min-w-0">
                     <div className="truncate font-medium">{pv.page}</div>
                     <div className="mt-0.5 flex flex-wrap gap-2 text-xs text-[var(--muted-foreground)]">
-                      {pv.device && <span>{pv.device}</span>}
+                      {pv.device  && <span>{pv.device}</span>}
                       {pv.browser && <span>· {pv.browser}</span>}
                       {pv.country && <span>· {pv.country}</span>}
                     </div>

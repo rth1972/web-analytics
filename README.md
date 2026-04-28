@@ -1,16 +1,22 @@
 # Web Analytics
 
-A self-hosted, privacy-focused web analytics platform. Tracks page views, sessions, devices, countries, referrers, and custom events — with a real-time dashboard.
+A self-hosted, privacy-focused web analytics platform built with Next.js, Express, Prisma and PostgreSQL. Tracks page views, sessions, devices, countries, referrers and custom events — with a real-time dashboard, multi-user support, 2FA, and role-based access control.
 
 ## Table of Contents
 
 - [Architecture](#architecture)
 - [Requirements](#requirements)
 - [Backend Setup](#backend-setup)
+- [Database Setup (PostgreSQL)](#database-setup-postgresql)
 - [Dashboard Setup](#dashboard-setup)
 - [Reverse Proxy & HTTPS](#reverse-proxy--https)
   - [Apache](#apache)
   - [Nginx](#nginx)
+- [User Management](#user-management)
+  - [Creating the first admin account](#creating-the-first-admin-account)
+  - [Enabling public signup](#enabling-public-signup)
+  - [Approving users](#approving-users)
+  - [Two-factor authentication](#two-factor-authentication)
 - [Adding a Website to Track](#adding-a-website-to-track)
 - [Installing the Tracker](#installing-the-tracker)
   - [Next.js App](#nextjs-app)
@@ -18,9 +24,6 @@ A self-hosted, privacy-focused web analytics platform. Tracks page views, sessio
   - [Any JavaScript Framework](#any-javascript-framework)
   - [WordPress](#wordpress)
 - [Content Security Policy](#content-security-policy)
-  - [Next.js CSP](#nextjs-csp)
-  - [Apache CSP Header](#apache-csp-header)
-  - [Nginx CSP Header](#nginx-csp-header)
 - [Custom Event Tracking](#custom-event-tracking)
 - [API Reference](#api-reference)
 - [Updating](#updating)
@@ -33,10 +36,20 @@ A self-hosted, privacy-focused web analytics platform. Tracks page views, sessio
 ```
 web-analytics/
 ├── backend/      # Node.js + Express + Prisma API (port 3456)
+│   ├── src/
+│   │   ├── routes/       # auth, websites, dashboard, analytics, admin
+│   │   ├── middleware/   # JWT auth, rate limiting
+│   │   └── services/     # email (nodemailer)
+│   └── prisma/
+│       └── schema.prisma # PostgreSQL schema
 └── frontend/     # Next.js dashboard (port 3000)
+    └── src/
+        ├── app/          # pages: dashboard, websites, realtime, settings, admin, help
+        ├── lib/          # api client (JWT-aware fetch wrapper)
+        └── middleware.ts # route protection
 ```
 
-The backend exposes a REST API and serves `tracker.js`. The dashboard is a separate Next.js app that reads from the backend. Websites you want to track load `tracker.js` and POST data to the backend API.
+The backend exposes a REST API and serves `tracker.js`. The dashboard is a separate Next.js app that reads from the backend. Websites you want to track load `tracker.js` and POST data to the backend API. All dashboard routes are protected by JWT authentication.
 
 ---
 
@@ -44,8 +57,9 @@ The backend exposes a REST API and serves `tracker.js`. The dashboard is a separ
 
 - Node.js 18 or higher
 - npm
-- A server with a public IP (for tracking websites accessible on the internet)
-- A domain name (for HTTPS, required by modern browsers)
+- PostgreSQL 14 or higher
+- A server with a public IP
+- A domain name (required for HTTPS, which is required by modern browsers for tracking)
 
 ---
 
@@ -54,33 +68,74 @@ The backend exposes a REST API and serves `tracker.js`. The dashboard is a separ
 ```bash
 cd backend
 npm install
-npx prisma generate
-npx prisma db push       # creates the SQLite database
-npm run dev              # starts on http://localhost:3456
 ```
 
-Verify it's running:
+Create a `.env` file in `backend/`:
+
+```env
+DATABASE_URL="postgresql://analytics:yourpassword@localhost:5432/analytics"
+NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+SMTP_HOST="mail.yourdomain.com"
+SMTP_PORT="587"
+SMTP_USER="noreply@yourdomain.com"
+SMTP_PASS="your-email-password"
+SMTP_FROM="noreply@yourdomain.com"
+APP_URL="https://dashboard.yourdomain.com"
+ALLOW_SIGNUP="false"
+PORT="3456"
+```
+
+Generate a secret:
 
 ```bash
-curl http://localhost:3456/api/health
-# {"status":"ok","timestamp":"..."}
+openssl rand -base64 32
+```
+
+Then run migrations and start:
+
+```bash
+npx prisma generate
+npx prisma db push
+npm run dev       # development
+npm run build && npm start   # production
 ```
 
 ### Running in Production with PM2
 
 ```bash
 npm install -g pm2
-pm2 start "npm run dev" --name analytics-backend
+cd backend
+npm run build
+pm2 start dist/index.js --name web-analytics-backend
 pm2 save
-pm2 startup              # follow the printed command to enable auto-start on reboot
+pm2 startup
 ```
 
-### Environment Variables
+---
 
-Create a `.env` file in the `backend/` directory if you want to customise the port:
+## Database Setup (PostgreSQL)
 
-```env
-PORT=3456
+```bash
+sudo apt install postgresql postgresql-contrib -y
+sudo systemctl enable --now postgresql
+
+sudo -u postgres psql
+```
+
+Inside the postgres shell:
+
+```sql
+CREATE USER analytics WITH PASSWORD 'yourpassword';
+CREATE DATABASE analytics OWNER analytics;
+GRANT ALL PRIVILEGES ON DATABASE analytics TO analytics;
+\q
+```
+
+Then run the migration:
+
+```bash
+cd backend
+npx prisma db push
 ```
 
 ---
@@ -92,39 +147,25 @@ cd frontend
 npm install
 ```
 
-Create a `.env.local` file in the `frontend/` directory:
+Create `.env.local` in `frontend/`:
 
 ```env
 NEXT_PUBLIC_API_URL=https://analytics.yourdomain.com
-NEXTAUTH_SECRET=your-secret-here
-NEXTAUTH_URL=https://dashboard.yourdomain.com
-AUTH_USERNAME=your-username
-AUTH_PASSWORD=your-password
+NEXTAUTH_SECRET=same-secret-as-backend
+ALLOW_SIGNUP=false
 ```
 
-Replace the values with your own:
-
-- `NEXT_PUBLIC_API_URL` — public URL of your backend
-- `NEXTAUTH_SECRET` — a random secret used to sign session tokens, generate one with `openssl rand -base64 32`
-- `NEXTAUTH_URL` — public URL of your dashboard
-- `AUTH_USERNAME` — the username you want to log in with
-- `AUTH_PASSWORD` — the password you want to log in with
-
-To change your username or password later, update `.env.local` and restart the dashboard:
-
-```bash
-pm2 restart analytics-frontend
-```
+> `NEXTAUTH_SECRET` must be identical in both backend `.env` and frontend `.env.local` — it is used to sign and verify JWT tokens.
 
 ```bash
 npm run build
-npm start                # starts on http://localhost:3000
+npm start   # starts on http://localhost:3000
 ```
 
 ### Running in Production with PM2
 
 ```bash
-pm2 start "npm start" --name analytics-frontend
+pm2 start "npm start" --name web-analytics-frontend
 pm2 save
 ```
 
@@ -132,49 +173,47 @@ pm2 save
 
 ## Reverse Proxy & HTTPS
 
-Modern browsers block tracking requests from HTTPS pages to HTTP endpoints. You need HTTPS on both the backend and dashboard. The examples below use subdomains — replace with your own domain.
+Both the backend and the dashboard need HTTPS. Set up two subdomains:
 
-| Service   | Subdomain example                        |
+| Service   | Example subdomain                        |
 |-----------|------------------------------------------|
-| Backend   | `analytics.yourdomain.com`               |
-| Dashboard | `dashboard.yourdomain.com`               |
+| Backend   | `analytics.yourdomain.com` → port 3456   |
+| Dashboard | `dashboard.yourdomain.com` → port 3000   |
 
 ### Apache
-
-Install Certbot:
 
 ```bash
 sudo apt install apache2 certbot python3-certbot-apache -y
 sudo a2enmod proxy proxy_http headers rewrite ssl
 ```
 
-**Backend vhost** — `/etc/apache2/sites-available/analytics.conf`:
+**Backend** — `/etc/apache2/sites-available/analytics.conf`:
 
 ```apache
 <VirtualHost *:80>
     ServerName analytics.yourdomain.com
-
     ProxyPreserveHost On
     ProxyPass / http://localhost:3456/
     ProxyPassReverse / http://localhost:3456/
-
-    RequestHeader set X-Forwarded-For "%{REMOTE_ADDR}s"
+    RequestHeader set X-Forwarded-Proto "https"
+    RequestHeader set X-Real-IP "%{REMOTE_ADDR}s"
+    SetEnv proxy-nokeepalive 1
+    ProxyTimeout 60
 </VirtualHost>
 ```
 
-**Dashboard vhost** — `/etc/apache2/sites-available/analytics-dashboard.conf`:
+**Dashboard** — `/etc/apache2/sites-available/analytics-dashboard.conf`:
 
 ```apache
 <VirtualHost *:80>
     ServerName dashboard.yourdomain.com
-
     ProxyPreserveHost On
     ProxyPass / http://localhost:3000/
     ProxyPassReverse / http://localhost:3000/
 </VirtualHost>
 ```
 
-Enable and get SSL certificates:
+Enable and get SSL:
 
 ```bash
 sudo a2ensite analytics.conf analytics-dashboard.conf
@@ -182,38 +221,29 @@ sudo systemctl reload apache2
 sudo certbot --apache -d analytics.yourdomain.com -d dashboard.yourdomain.com
 ```
 
-> Make sure DNS A records for both subdomains point to your server's public IP before running Certbot.
-
 ### Nginx
 
-```bash
-sudo apt install nginx certbot python3-certbot-nginx -y
-```
-
-**Backend vhost** — `/etc/nginx/sites-available/analytics`:
+**Backend** — `/etc/nginx/sites-available/analytics`:
 
 ```nginx
 server {
     server_name analytics.yourdomain.com;
-
     location / {
         proxy_pass http://localhost:3456;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-**Dashboard vhost** — `/etc/nginx/sites-available/analytics-dashboard`:
+**Dashboard** — `/etc/nginx/sites-available/analytics-dashboard`:
 
 ```nginx
 server {
     server_name dashboard.yourdomain.com;
-
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -225,46 +255,72 @@ server {
 }
 ```
 
-Enable and get SSL certificates:
+Enable and get SSL:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/analytics /etc/nginx/sites-enabled/
 sudo ln -s /etc/nginx/sites-available/analytics-dashboard /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx
 sudo certbot --nginx -d analytics.yourdomain.com -d dashboard.yourdomain.com
 ```
 
 ---
 
-## Adding a Website to Track
+## User Management
 
-Open the dashboard at `https://dashboard.yourdomain.com` and go to **Websites → Add Website**.
+### Creating the first admin account
 
-- **Name** — a human-readable label, e.g. `My Blog`
-- **Domain** — the hostname only, without protocol or trailing slash, e.g. `myblog.com`
-
-The domain must match the hostname of the site exactly. This is used for automatic CORS allowlisting — once a domain is registered, its origin is automatically allowed to send tracking data.
-
-You can also register a website via the API directly:
+Public signup is disabled by default (`ALLOW_SIGNUP=false`). Create your first admin directly in the database:
 
 ```bash
-curl -X POST https://analytics.yourdomain.com/api/websites \
-  -H "Content-Type: application/json" \
-  -d '{"name": "My Blog", "domain": "myblog.com"}'
+# Generate a bcrypt password hash
+cd ~/web-analytics-backend
+node -e "import('./node_modules/bcryptjs/index.js').then(b => b.default.hash('yourpassword', 12).then(h => console.log(h)))"
 ```
 
-The response contains the `id` you will use as `data-website-id` in the tracker snippet.
+Copy the hash, then insert the user:
+
+```bash
+sudo -u postgres psql analytics -c "
+INSERT INTO users (id, username, email, \"passwordHash\", role, \"emailVerified\", approved)
+VALUES (gen_random_uuid(), 'yourusername', 'you@yourdomain.com', 'PASTE_HASH_HERE', 'ADMIN', true, true);
+"
+```
+
+### Enabling public signup
+
+When you're ready to let others sign up, set in `backend/.env`:
+
+```env
+ALLOW_SIGNUP=true
+```
+
+Restart the backend. New users who register will need to verify their email and then be approved by an admin before they can log in.
+
+### Approving users
+
+Go to **Admin** in the sidebar. Pending users appear at the top with an Approve/Reject button. Approving sends the user a welcome email automatically.
+
+### Two-factor authentication
+
+Users can enable 2FA from **Settings → Two-Factor Authentication**. After clicking "Set up 2FA", a QR code is shown — scan it with any TOTP app (Google Authenticator, Authy, 1Password, etc.), then enter the 6-digit code to confirm. On future logins, the user will be prompted for their code after entering their password.
+
+---
+
+## Adding a Website to Track
+
+1. Go to **Websites** in the sidebar
+2. Click **Add Website**
+3. Enter a name (e.g. `My Blog`) and domain (e.g. `blog.yourdomain.com` — no `https://`, no trailing slash)
+4. Click **Get Snippet** on the website card to get your pre-filled tracking snippet
+
+The domain is used for CORS allowlisting — once added, that origin is automatically allowed to send tracking data to the backend.
 
 ---
 
 ## Installing the Tracker
 
-Once a website is registered, go to **Websites → Get Snippet** in the dashboard to get a pre-filled snippet for that site. Or follow the instructions below.
-
 ### Next.js App
-
-Use the `next/script` component so Next.js handles loading strategy and hydration correctly.
 
 **App Router** — add to `app/layout.tsx`:
 
@@ -288,49 +344,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-**Pages Router** — add to `pages/_app.tsx`:
-
-```tsx
-import Script from 'next/script'
-import type { AppProps } from 'next/app'
-
-export default function App({ Component, pageProps }: AppProps) {
-  return (
-    <>
-      <Component {...pageProps} />
-      <Script
-        src="https://analytics.yourdomain.com/tracker.js"
-        data-website-id="YOUR_WEBSITE_ID"
-        data-api-url="https://analytics.yourdomain.com"
-        strategy="afterInteractive"
-      />
-    </>
-  )
-}
-```
-
 Using environment variables (recommended):
 
 ```env
 # .env.local
 NEXT_PUBLIC_ANALYTICS_URL=https://analytics.yourdomain.com
-NEXT_PUBLIC_ANALYTICS_WEBSITE_ID=YOUR_WEBSITE_ID
+NEXT_PUBLIC_ANALYTICS_ID=YOUR_WEBSITE_ID
 ```
 
 ```tsx
 <Script
   src={`${process.env.NEXT_PUBLIC_ANALYTICS_URL}/tracker.js`}
-  data-website-id={process.env.NEXT_PUBLIC_ANALYTICS_WEBSITE_ID}
+  data-website-id={process.env.NEXT_PUBLIC_ANALYTICS_ID}
   data-api-url={process.env.NEXT_PUBLIC_ANALYTICS_URL}
   strategy="afterInteractive"
 />
 ```
 
-The tracker automatically handles client-side navigation — page views are fired on every route change without any extra configuration.
+The tracker automatically handles client-side navigation — page views fire on every route change without extra configuration.
 
 ### Plain HTML
 
-Add the script tag before the closing `</body>` tag on every page you want to track:
+Add before `</body>` on every page:
 
 ```html
 <script
@@ -340,25 +375,10 @@ Add the script tag before the closing `</body>` tag on every page you want to tr
   defer
 ></script>
 ```
-
-For multi-page sites, add this to a shared layout file or template so it is included on every page automatically.
 
 ### Any JavaScript Framework
 
-The snippet is the same regardless of framework — React, Vue, Svelte, Astro, etc. Add it once to your root layout or `index.html`.
-
-**Vue 3** — `index.html`:
-
-```html
-<script
-  src="https://analytics.yourdomain.com/tracker.js"
-  data-website-id="YOUR_WEBSITE_ID"
-  data-api-url="https://analytics.yourdomain.com"
-  defer
-></script>
-```
-
-For SPAs with client-side routing (Vue Router, React Router, etc.) the tracker patches `history.pushState` and `history.replaceState` automatically, so page views are tracked on every navigation without any extra setup.
+The snippet is framework-agnostic. Add it once to your root layout or `index.html`. The tracker patches `history.pushState` and `history.replaceState` automatically so SPAs (Vue, React, Svelte, Astro) are tracked without extra setup.
 
 **Astro** — `src/layouts/BaseLayout.astro`:
 
@@ -374,9 +394,9 @@ For SPAs with client-side routing (Vue Router, React Router, etc.) the tracker p
 
 ### WordPress
 
-Add the snippet to your theme's `footer.php` file, just before `</body>`:
+Add to your theme's `footer.php` before `</body>`, or use the **Insert Headers and Footers** plugin and paste the snippet in the Footer section:
 
-```php
+```html
 <script
   src="https://analytics.yourdomain.com/tracker.js"
   data-website-id="YOUR_WEBSITE_ID"
@@ -385,51 +405,37 @@ Add the snippet to your theme's `footer.php` file, just before `</body>`:
 ></script>
 ```
 
-Or use a plugin like **Insert Headers and Footers** to add the snippet without editing theme files. Paste the snippet into the **Footer** section.
-
 ---
 
 ## Content Security Policy
 
-If your website sets a Content Security Policy you need to explicitly allow the analytics domain. Below are examples for common setups.
+If your site has a CSP, add `https://analytics.yourdomain.com` to both `script-src` and `connect-src`.
 
-### Next.js CSP
-
-In `next.config.js` / `next.config.mjs`, add `https://analytics.yourdomain.com` to both `script-src` and `connect-src`:
+**Next.js** — `next.config.js`:
 
 ```js
 async headers() {
-  return [
-    {
-      source: '/(.*)',
-      headers: [
-        {
-          key: 'Content-Security-Policy',
-          value: [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://analytics.yourdomain.com",
-            "style-src 'self' 'unsafe-inline'",
-            "connect-src 'self' https://analytics.yourdomain.com",
-            // add any other directives your app needs
-          ].join('; '),
-        },
-      ],
-    },
-  ]
-},
+  return [{
+    source: '/(.*)',
+    headers: [{
+      key: 'Content-Security-Policy',
+      value: [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://analytics.yourdomain.com",
+        "connect-src 'self' https://analytics.yourdomain.com",
+      ].join('; '),
+    }],
+  }]
+}
 ```
 
-### Apache CSP Header
-
-In your site's Apache vhost:
+**Apache:**
 
 ```apache
 Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://analytics.yourdomain.com; connect-src 'self' https://analytics.yourdomain.com"
 ```
 
-### Nginx CSP Header
-
-In your site's Nginx server block:
+**Nginx:**
 
 ```nginx
 add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://analytics.yourdomain.com; connect-src 'self' https://analytics.yourdomain.com";
@@ -439,112 +445,189 @@ add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsaf
 
 ## Custom Event Tracking
 
-Once `tracker.js` is loaded, a global `analytics` object is available. You can call it anywhere in your JavaScript.
+Once `tracker.js` is loaded, a global `analytics` object is available anywhere in your JavaScript.
 
-### Track a custom event
+### Basic usage
 
 ```javascript
+analytics.track('event_name');
 analytics.track('event_name', { key: 'value' });
 ```
 
-Examples:
+### Common examples
 
 ```javascript
-// Track a button click
-document.querySelector('#signup').addEventListener('click', () => {
-  analytics.track('signup_click', { plan: 'pro' });
+// Button click
+document.querySelector('#cta').addEventListener('click', () => {
+  analytics.track('cta_click', { label: 'Get Started' });
 });
 
-// Track a form submission
-analytics.track('form_submit', { form: 'contact' });
+// Form submission
+document.querySelector('form').addEventListener('submit', () => {
+  analytics.track('form_submit', { form: 'contact' });
+});
 
-// Track a purchase
-analytics.track('purchase', { product: 'Widget', price: 29.99, currency: 'USD' });
+// Purchase / conversion
+analytics.track('purchase', {
+  product: 'Pro Plan',
+  price: 29.99,
+  currency: 'USD',
+});
 
-// Track a video play
-analytics.track('video_play', { title: 'Introduction', duration: 120 });
-```
+// File download
+document.querySelectorAll('a[href$=".pdf"]').forEach(link => {
+  link.addEventListener('click', () => {
+    analytics.track('file_download', { file: link.href });
+  });
+});
 
-### Identify a user
+// Video play
+videoElement.addEventListener('play', () => {
+  analytics.track('video_play', { title: 'Product Demo', duration: 120 });
+});
 
-```javascript
-analytics.identify('user-123', {
-  email: 'user@example.com',
-  plan: 'pro',
+// Search
+analytics.track('search', { query: searchInput.value });
+
+// Outbound link
+document.querySelectorAll('a[href^="http"]').forEach(link => {
+  link.addEventListener('click', () => {
+    analytics.track('outbound_click', { url: link.href });
+  });
 });
 ```
 
-The user ID and data are stored in `sessionStorage` and can be used to correlate events with a specific user within a session.
+### React / Next.js
+
+```tsx
+// Inline handler
+<button onClick={() => analytics.track('signup_click', { plan: 'pro' })}>
+  Sign up
+</button>
+
+// useEffect for page-specific events
+useEffect(() => {
+  analytics.track('page_view_custom', { section: 'pricing' });
+}, []);
+```
+
+### Vue 3
+
+```js
+// In a component method
+methods: {
+  handleSignup() {
+    analytics.track('signup_click', { source: 'hero' });
+  }
+}
+```
+
+### TypeScript declaration
+
+Add this to a `global.d.ts` file in your project to get type hints:
+
+```typescript
+interface Analytics {
+  track: (event: string, data?: Record<string, unknown>) => void;
+}
+
+declare const analytics: Analytics;
+```
 
 ---
 
 ## API Reference
 
+All protected endpoints require an `Authorization: Bearer <token>` header. Obtain a token by calling `POST /api/auth/login`.
+
+### Auth
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/auth/register` | — | Register (requires `ALLOW_SIGNUP=true`) |
+| `POST` | `/api/auth/login` | — | Login with username + password |
+| `POST` | `/api/auth/verify-email` | — | Verify email with token from email |
+| `GET`  | `/api/auth/me` | ✓ | Get current user info |
+| `POST` | `/api/auth/2fa/setup` | ✓ | Begin 2FA setup, returns QR code |
+| `POST` | `/api/auth/2fa/confirm` | ✓ | Confirm 2FA with TOTP code |
+| `POST` | `/api/auth/2fa/disable` | ✓ | Disable 2FA (requires password) |
+
 ### Websites
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/websites` | List all websites |
-| `POST` | `/api/websites` | Create a website |
-| `DELETE` | `/api/websites/:id` | Delete a website and all its data |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/websites` | ✓ | List websites (own, or all if admin) |
+| `POST` | `/api/websites` | ✓ | Create a website |
+| `DELETE` | `/api/websites/:id` | ✓ | Delete a website and all its data |
 
-### Tracking
+### Tracking (public — called from visitor browsers)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/analytics/track/pageview` | Track a page view |
 | `POST` | `/api/analytics/track/event` | Track a custom event |
-| `GET` | `/api/analytics/data/:websiteId` | Get raw analytics data |
 
 ### Dashboard
 
+All accept `?period=24h` (default), `?period=7d`, or `?period=30d`.
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/dashboard/:id/stats` | ✓ | Overview stats |
+| `GET` | `/api/dashboard/:id/pages` | ✓ | Top pages |
+| `GET` | `/api/dashboard/:id/referrers` | ✓ | Traffic sources |
+| `GET` | `/api/dashboard/:id/devices` | ✓ | Device breakdown |
+| `GET` | `/api/dashboard/:id/browsers` | ✓ | Browser breakdown |
+| `GET` | `/api/dashboard/:id/countries` | ✓ | Country breakdown |
+| `GET` | `/api/dashboard/:id/realtime` | ✓ | Live activity (last 5 minutes) |
+| `GET` | `/api/analytics/data/:id/ips` | ✓ | Raw visitor IPs |
+
+### Admin (admin role required)
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/dashboard/:websiteId/stats` | Stats overview (page views, visitors, bounce rate, etc.) |
-| `GET` | `/api/dashboard/:websiteId/pages` | Top pages |
-| `GET` | `/api/dashboard/:websiteId/referrers` | Traffic sources |
-| `GET` | `/api/dashboard/:websiteId/devices` | Device breakdown |
-| `GET` | `/api/dashboard/:websiteId/browsers` | Browser breakdown |
-| `GET` | `/api/dashboard/:websiteId/countries` | Country breakdown |
-| `GET` | `/api/dashboard/:websiteId/realtime` | Live activity (last 5 minutes) |
-
-All dashboard endpoints accept an optional `?period=` query parameter: `24h` (default), `7d`, or `30d`.
+| `GET` | `/api/admin` | List all users |
+| `POST` | `/api/admin/:id/approve` | Approve a user |
+| `POST` | `/api/admin/:id/revoke` | Revoke user access |
+| `POST` | `/api/admin/:id/role` | Change user role |
+| `DELETE` | `/api/admin/:id` | Delete a user |
+| `GET` | `/api/admin/websites` | List all websites (all users) |
 
 ### Health
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/health` | Check backend is running |
+| `GET` | `/api/health` | Check backend status |
 
 ---
 
 ## Updating
 
-Pull the latest changes and redeploy:
-
 ```bash
 # On your local machine
 git pull
 
-# Sync backend
-rsync -av --exclude='node_modules' --exclude='prisma/dev.db' backend/ user@yourserver:~/web-analytics-backend/
+# Copy backend source to server
+scp -r backend/src robin@yourserver:~/web-analytics-backend/
+scp backend/package.json robin@yourserver:~/web-analytics-backend/
+scp backend/prisma/schema.prisma robin@yourserver:~/web-analytics-backend/prisma/
 
-# Sync frontend
-rsync -av --exclude='node_modules' --exclude='.next' frontend/ user@yourserver:~/web-analytics-frontend/
+# Copy frontend source to server
+scp -r frontend/src robin@yourserver:~/web-analytics-frontend/
+scp frontend/package.json robin@yourserver:~/web-analytics-frontend/
 
 # On the server
-ssh user@yourserver
+ssh robin@yourserver
 
 cd ~/web-analytics-backend
 npm install
 npx prisma generate
 npx prisma db push
-pm2 restart analytics-backend
+npm run build && pm2 restart web-analytics-backend
 
 cd ~/web-analytics-frontend
 npm install
-npm run build
-pm2 restart analytics-frontend
+npm run build && pm2 restart web-analytics-frontend
 ```
 
 ---
@@ -553,39 +636,55 @@ pm2 restart analytics-frontend
 
 **Tracker script returns 404**
 
-The script is served from the backend at `/tracker.js`. Make sure the backend is running and `https://analytics.yourdomain.com/tracker.js` is reachable in your browser.
+The script is served from the backend at `/tracker.js`. Check that `https://analytics.yourdomain.com/tracker.js` is reachable.
 
 **CORS error on tracking requests**
 
-Make sure the domain of the website you are tracking is registered in the dashboard under **Websites**. The domain must be the hostname only — `myblog.com`, not `https://myblog.com`. After adding the website, no server restart is needed.
+Make sure the domain is registered under **Websites** in the dashboard — hostname only, no `https://` prefix or trailing slash. No restart needed after adding.
+
+**POST requests hang through Apache**
+
+Enable the headers module and add proxy directives:
+
+```bash
+sudo a2enmod headers
+sudo systemctl restart apache2
+```
+
+Add to your vhost:
+```apache
+SetEnv proxy-nokeepalive 1
+ProxyTimeout 60
+```
 
 **Country shows as Unknown**
 
-The `geoip-lite` package is required on the backend for country detection:
+Visitors on private networks (192.168.x.x, 10.x.x.x, localhost) always show as Unknown — this is correct since geoip-lite can't resolve private IPs. Test from a device on mobile data or outside your network.
+
+**Login redirects back to /login**
+
+The `NEXTAUTH_SECRET` in `backend/.env` and `frontend/.env.local` must be exactly identical. Check:
 
 ```bash
-cd ~/web-analytics-backend
-npm install geoip-lite
-npm install --save-dev @types/geoip-lite
-pm2 restart analytics-backend
+grep NEXTAUTH_SECRET ~/web-analytics-backend/.env
+grep NEXTAUTH_SECRET ~/web-analytics-frontend/.env.local
 ```
-
-Country lookup is based on the visitor's IP address. Visitors on private/local networks (192.168.x.x, 10.x.x.x, localhost) will always show as Unknown.
 
 **No data appearing in the dashboard**
 
-Open your browser's DevTools console on the tracked website. You should see:
-
+Open DevTools console on the tracked site. You should see:
 ```
-[Analytics] Tracker v1.0.0 initialized for website YOUR_WEBSITE_ID
+[Analytics] Tracker initialized for website YOUR_WEBSITE_ID
 ```
-
-If this line is missing, the script is not loading — check the `src` URL and your CSP. If the line is present but data is missing, check the Network tab for failed POST requests to `/api/analytics/track/pageview`.
+If missing, the script isn't loading — check the `src` URL and your CSP. If present but no data appears, check the Network tab for failed POST requests to `/api/analytics/track/pageview`.
 
 **Mixed content error**
 
-If your website is served over HTTPS, the analytics backend must also be HTTPS. HTTP endpoints are blocked by modern browsers on HTTPS pages. Follow the [Reverse Proxy & HTTPS](#reverse-proxy--https) section to set up SSL.
+The analytics backend must be HTTPS if your website is HTTPS. HTTP endpoints are blocked by modern browsers on HTTPS pages.
 
-**PM2 process not starting on reboot**
+**PM2 not starting on reboot**
 
-Run `pm2 startup` and execute the command it prints, then run `pm2 save` to persist the current process list.
+```bash
+pm2 startup   # follow the printed command
+pm2 save
+```

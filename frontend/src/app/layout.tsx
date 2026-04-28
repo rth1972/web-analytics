@@ -3,6 +3,7 @@
 import './globals.css';
 import { useEffect, useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import {
   Sun, Moon, LayoutDashboard, Globe, Zap,
   Settings, ShieldCheck, LogOut, Menu, X,
@@ -40,7 +41,7 @@ function NavLink({ href, icon, label, onClick }: {
   const pathname = usePathname();
   const active = pathname === href || (href !== '/' && pathname.startsWith(href));
   return (
-    <a href={href} onClick={onClick}
+    <Link href={href} onClick={onClick}
       className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
         active
           ? 'bg-[var(--primary)] text-white'
@@ -48,7 +49,7 @@ function NavLink({ href, icon, label, onClick }: {
       }`}>
       {icon}
       {label}
-    </a>
+    </Link>
   );
 }
 
@@ -68,18 +69,19 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   function logout() {
     document.cookie = 'auth-token=; path=/; max-age=0';
+    try { localStorage.removeItem('auth-token'); } catch {}
     window.location.href = '/login';
   }
 
   return (
     <div className="flex flex-col h-full p-6">
       <div className="mb-8 flex items-center justify-between">
-        <div>
+        <Link href="/" onClick={onNavClick} className="block">
           <h1 className="text-xl font-bold text-[var(--primary)]">Analytics</h1>
           <p className="text-xs text-[var(--muted-foreground)] truncate max-w-[140px]">
             {username ?? '…'}
           </p>
-        </div>
+        </Link>
         <ThemeToggle />
       </div>
 
@@ -117,14 +119,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -132,12 +132,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      {/* ── Desktop sidebar (always visible ≥ lg) ── */}
+      {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-64 shrink-0 border-r border-[var(--border)] bg-[var(--card)] h-screen sticky top-0 flex-col">
         <SidebarContent />
       </aside>
 
-      {/* ── Mobile overlay ── */}
+      {/* Mobile overlay */}
       {open && (
         <div
           ref={overlayRef}
@@ -147,13 +147,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* ── Mobile sidebar (slides in from left) ── */}
+      {/* Mobile sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-72 bg-[var(--card)] border-r border-[var(--border)]
         transform transition-transform duration-200 ease-in-out lg:hidden
         ${open ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        {/* Close button inside mobile sidebar */}
         <button
           onClick={() => setOpen(false)}
           className="absolute top-4 right-4 rounded-lg p-1.5 text-[var(--muted-foreground)] hover:bg-[var(--secondary)] transition-colors"
@@ -163,7 +162,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarContent onNavClick={() => setOpen(false)} />
       </aside>
 
-      {/* ── Main content ── */}
+      {/* Main content */}
       <div className="flex flex-1 flex-col min-w-0">
         {/* Mobile top bar */}
         <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 border-b border-[var(--border)] bg-[var(--card)]/90 backdrop-blur px-4 py-3">
@@ -173,7 +172,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
             aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
-          <span className="font-semibold text-[var(--primary)]">Analytics</span>
+          <Link href="/" className="font-semibold text-[var(--primary)]">Analytics</Link>
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-8">

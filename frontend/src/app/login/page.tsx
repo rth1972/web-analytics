@@ -1,5 +1,5 @@
 'use client';
-
+import Image from 'next/image';
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
@@ -67,9 +67,21 @@ function LoginForm() {
   return (
     <div className="min-h-screen flex">
       {/* ── Left panel ── */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden bg-indigo-600">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-indigo-700" />
-        <div className="absolute inset-0 opacity-10">
+      <div className="hidden lg:flex lg:w-1/2 relative min-h-screen flex-col justify-between p-12 overflow-hidden bg-indigo-600">
+        
+        {/* Background Image - Fill ensures it covers the parent div */}
+        <Image 
+          src="/2481602.jpeg" 
+          alt="Dashboard Background"
+          fill
+          priority
+          sizes="50vw"
+          className="object-cover opacity-40 z-0" 
+        />
+
+        {/* Overlays - z-10 puts them above the image but below the text */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-700 to-indigo-900 opacity-30 z-10" />
+        <div className="absolute inset-0 opacity-10 z-10">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="absolute rounded-full border border-white" style={{
               width: `${200 + i * 120}px`, height: `${200 + i * 120}px`,
@@ -78,17 +90,18 @@ function LoginForm() {
           ))}
         </div>
 
-        <div className="relative flex items-center gap-3">
+        {/* Content - z-20 puts this on top of everything */}
+        <div className="relative z-20 flex items-center gap-3">
           <ViewlyMark size={40} />
-          <span className="text-white font-bold text-2xl tracking-tight">viewly</span>
+          <span className="text-white font-bold text-2xl tracking-tight">Viewly</span>
         </div>
 
-        <div className="relative space-y-6">
+        <div className="relative z-20 space-y-6">
           <div className="space-y-3">
             <h1 className="text-4xl font-bold text-white leading-tight">
               See your traffic<br />clearly.
             </h1>
-            <p className="text-indigo-200 text-lg leading-relaxed">
+            <p className="text-indigo-100 text-lg leading-relaxed">
               Privacy-friendly analytics that help you make smarter decisions about your website.
             </p>
           </div>
@@ -100,13 +113,13 @@ function LoginForm() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-indigo-100 text-sm">{f}</span>
+                <span className="text-indigo-50 text-sm font-medium">{f}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative z-20">
           <p className="text-indigo-200 text-sm">&copy; {new Date().getFullYear()} Viewly. All rights reserved.</p>
         </div>
       </div>
@@ -116,7 +129,7 @@ function LoginForm() {
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-2.5 mb-8">
             <ViewlyMark size={32} />
-            <span className="font-bold text-xl text-indigo-600">viewly</span>
+            <span className="font-bold text-xl text-indigo-600">Viewly</span>
           </div>
 
           <div className="mb-8">
@@ -185,5 +198,9 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
-  return <Suspense><LoginForm /></Suspense>;
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
 }

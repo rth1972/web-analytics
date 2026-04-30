@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3456';
 
@@ -60,11 +61,23 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-[var(--background)]">
       {/* ── Left panel ── */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden bg-indigo-600">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-indigo-700" />
-        <div className="absolute inset-0 opacity-10">
+      <div className="hidden lg:flex lg:w-1/2 relative min-h-screen flex-col justify-between p-12 overflow-hidden bg-indigo-600">
+        
+        {/* BACKGROUND IMAGE - Corrected implementation */}
+        <Image 
+          src="/2481602.jpeg" 
+          alt="Dashboard Background"
+          fill
+          priority
+          sizes="50vw"
+          className="object-cover opacity-40 z-0" 
+        />
+
+        {/* Overlays - z-10 puts them above the image but below the text */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-700 to-indigo-900 opacity-30 z-10" />
+        <div className="absolute inset-0 opacity-10 z-10">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="absolute rounded-full border border-white" style={{
               width: `${200 + i * 120}px`, height: `${200 + i * 120}px`,
@@ -73,17 +86,18 @@ export default function RegisterPage() {
           ))}
         </div>
 
-        <div className="relative flex items-center gap-3">
+        {/* Content - z-20 puts this on top of everything */}
+        <div className="relative z-20 flex items-center gap-3">
           <ViewlyMark size={40} />
-          <span className="text-white font-bold text-2xl tracking-tight">viewly</span>
+          <span className="text-white font-bold text-2xl tracking-tight">Viewly</span>
         </div>
 
-        <div className="relative space-y-6">
+        <div className="relative z-20 space-y-6">
           <div className="space-y-3">
             <h1 className="text-4xl font-bold text-white leading-tight">
               Start tracking<br />in minutes.
             </h1>
-            <p className="text-indigo-200 text-lg leading-relaxed">
+            <p className="text-indigo-100 text-lg leading-relaxed">
               Create your free account and get instant insights into who visits your website.
             </p>
           </div>
@@ -95,13 +109,13 @@ export default function RegisterPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-indigo-100 text-sm">{f}</span>
+                <span className="text-indigo-50 text-sm font-medium">{f}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative z-20">
           <p className="text-indigo-200 text-sm">&copy; {new Date().getFullYear()} Viewly. All rights reserved.</p>
         </div>
       </div>

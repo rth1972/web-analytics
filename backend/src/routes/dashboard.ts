@@ -176,6 +176,37 @@ router.get('/:websiteId/browsers', async (req, res) => {
   }
 });
 
+// ── Operating Systems ────────────────────────────────────────────────────────
+
+router.get('/:websiteId/os', async (req, res) => {
+  try {
+    const prisma = (req as any).prisma;
+    const { websiteId } = req.params;
+    const startDate = getStartDate((req.query.period as string) || '24h');
+
+    const pageViews = await prisma.pageView.findMany({
+      where: { websiteId, timestamp: { gte: startDate } },
+      select: { os: true },
+    });
+
+    const osMap = new Map<string, number>();
+    for (const pv of pageViews) {
+      const os = pv.os || 'Unknown';
+      osMap.set(os, (osMap.get(os) || 0) + 1);
+    }
+
+    const result = Array.from(osMap.entries())
+      .map(([os, count]) => ({ os, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    res.json(result);
+  } catch (error) {
+    console.error('OS error:', error);
+    res.status(500).json({ error: 'Failed to fetch operating systems' });
+  }
+});
+
 // ── Countries ─────────────────────────────────────────────────────────────────
 
 router.get('/:websiteId/countries', async (req, res) => {

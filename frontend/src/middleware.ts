@@ -5,10 +5,9 @@ const PUBLIC_PATHS = [
   '/login',
   '/register',
   '/verify-email',
+  '/public',
   '/api/auth/login',
   '/api/auth/logout',
-  '/api/auth/register',
-  '/api/auth/verify-email',
 ];
 
 function getSecret() {
@@ -20,6 +19,7 @@ function getSecret() {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Always allow public paths
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
     return NextResponse.next();
   }
@@ -37,11 +37,10 @@ export async function middleware(req: NextRequest) {
   try {
     const { payload } = await jwtVerify(token, getSecret());
 
-    // Inject user info into request headers for server components
     const headers = new Headers(req.headers);
-    headers.set('x-user-id',    payload.userId as string);
-    headers.set('x-user-email', payload.email as string);
-    headers.set('x-user-role',  payload.role as string);
+    headers.set('x-user-id',    String(payload.userId   ?? ''));
+    headers.set('x-user-email', String(payload.email    ?? ''));
+    headers.set('x-user-role',  String(payload.role     ?? ''));
 
     // Protect admin routes
     if (pathname.startsWith('/admin') && payload.role !== 'ADMIN') {
@@ -56,5 +55,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.[\\w]+$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.\\w+$).*)'],
 };

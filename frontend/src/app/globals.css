@@ -1,58 +1,87 @@
 @import "tailwindcss";
 
+/* ── Light mode ─────────────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --card: #f9f9f9;
-  --card-foreground: #0a0a0a;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --secondary: #f0f0f0;
-  --secondary-foreground: #0a0a0a;
-  --muted: #e5e5e5;
-  --muted-foreground: #737373;
-  --border: #e5e5e5;
-  --radius: 0.75rem;
+  --background:        #f8f8fb;
+  --foreground:        #111111;
+  --card:              #ffffff;
+  --card-foreground:   #111111;
+  --sidebar:           #4f46e5;
+  --sidebar-fg:        #ffffff;
+  --sidebar-muted:     rgba(255,255,255,0.55);
+  --sidebar-hover:     rgba(255,255,255,0.10);
+  --sidebar-active:    rgba(255,255,255,0.18);
+  --sidebar-border:    rgba(255,255,255,0.10);
+  --primary:           #6366f1;
+  --primary-hover:     #4f46e5;
+  --primary-foreground:#ffffff;
+  --secondary:         #f3f4f6;
+  --muted:             #f0f0f4;
+  --muted-foreground:  #6b7280;
+  --border:            #e5e7eb;
+  --input:             #ffffff;
+  --ring:              #6366f1;
+  --success:           #10b981;
+  --warning:           #f59e0b;
+  --danger:            #ef4444;
+  --radius:            0.6rem;
 }
 
+/* ── Dark mode ──────────────────────────────────────────────────────────────── */
 .dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #111111;
-  --card-foreground: #fafafa;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --secondary: #1a1a1a;
-  --secondary-foreground: #fafafa;
-  --muted: #262626;
-  --muted-foreground: #a3a3a3;
-  --border: #262626;
-  --radius: 0.75rem;
+  --background:        #0f0f12;
+  --foreground:        #f1f1f3;
+  --card:              #1a1a1f;
+  --card-foreground:   #f1f1f3;
+  --sidebar:           #1e1b4b;
+  --sidebar-fg:        #e0e0ff;
+  --sidebar-muted:     rgba(200,200,255,0.45);
+  --sidebar-hover:     rgba(255,255,255,0.07);
+  --sidebar-active:    rgba(255,255,255,0.13);
+  --sidebar-border:    rgba(255,255,255,0.07);
+  --primary:           #818cf8;
+  --primary-hover:     #6366f1;
+  --primary-foreground:#ffffff;
+  --secondary:         #26262e;
+  --muted:             #26262e;
+  --muted-foreground:  #71717a;
+  --border:            #2e2e38;
+  --input:             #1a1a1f;
+  --ring:              #6366f1;
+  --success:           #10b981;
+  --warning:           #f59e0b;
+  --danger:            #ef4444;
 }
 
 * {
   border-color: var(--border);
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background:  var(--background);
+  color:       var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  font-size:   14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Thin custom scrollbar */
+::-webkit-scrollbar            { width: 5px; height: 5px; }
+::-webkit-scrollbar-track      { background: transparent; }
+::-webkit-scrollbar-thumb      { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover{ background: var(--muted-foreground); }
+
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
+  --color-background:       var(--background);
+  --color-foreground:       var(--foreground);
+  --color-card:             var(--card);
+  --color-primary:          var(--primary);
+  --color-muted:            var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 4px);
+  --color-border:           var(--border);
+  --color-success:          var(--success);
+  --color-warning:          var(--warning);
+  --color-danger:           var(--danger);
 }

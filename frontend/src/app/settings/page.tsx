@@ -9,6 +9,9 @@ interface Me {
   role: string;
   twoFactorEnabled: boolean;
   emailVerified: boolean;
+  weeklyReports: boolean;
+  monthlyReports: boolean;
+  dataRetentionDays: number;
 }
 
 export default function SettingsPage() {
@@ -20,9 +23,17 @@ export default function SettingsPage() {
   const [msg, setMsg]             = useState('');
   const [err, setErr]             = useState('');
   const [loading, setLoading]     = useState(false);
+  const [weeklyReports, setWeeklyReports] = useState(false);
+  const [monthlyReports, setMonthlyReports] = useState(false);
+  const [retentionDays, setRetentionDays] = useState(365);
 
   useEffect(() => {
-    api.get('/api/auth/me').then(r => r.json()).then(setMe);
+    api.get('/api/auth/me').then(r => r.json()).then((data: Me) => {
+      setMe(data);
+      setWeeklyReports(data.weeklyReports || false);
+      setMonthlyReports(data.monthlyReports || false);
+      setRetentionDays(data.dataRetentionDays || 365);
+    });
   }, []);
 
   function flash(message: string, isError = false) {
@@ -175,6 +186,51 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* Report Preferences */}
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 space-y-4">
+        <h2 className="font-semibold text-lg">Report Preferences</h2>
+        <p className="text-sm text-[var(--muted-foreground)]">Receive periodic email reports about your websites.</p>
+        <div className="space-y-3">
+          <label className="flex items-center gap-3">
+            <input type="checkbox" checked={weeklyReports} onChange={e => {
+              setWeeklyReports(e.target.checked);
+              updatePreference('weeklyReports', e.target.checked);
+            }}
+              className="rounded border-[var(--border)] bg-[var(--background)]" />
+            <span className="text-sm">Weekly reports (every Monday)</span>
+          </label>
+          <label className="flex items-center gap-3">
+            <input type="checkbox" checked={monthlyReports} onChange={e => {
+              setMonthlyReports(e.target.checked);
+              updatePreference('monthlyReports', e.target.checked);
+            }}
+              className="rounded border-[var(--border)] bg-[var(--background)]" />
+            <span className="text-sm">Monthly reports</span>
+          </label>
+        </div>
+      </div>
+
+      {/* Data Retention */}
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 space-y-4">
+        <h2 className="font-semibold text-lg">Data Retention</h2>
+        <p className="text-sm text-[var(--muted-foreground)]">Automatically delete page views and events older than the specified number of days.</p>
+        <div className="flex items-center gap-3">
+          <select value={retentionDays} onChange={e => {
+            setRetentionDays(Number(e.target.value));
+            updatePreference('dataRetentionDays', Number(e.target.value));
+          }}
+            className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm">
+            <option value={30}>30 days</option>
+            <option value={90}>90 days</option>
+            <option value={180}>180 days</option>
+            <option value={365}>1 year</option>
+            <option value={730}>2 years</option>
+            <option value={0}>Keep forever</option>
+          </select>
+          <span className="text-sm text-[var(--muted-foreground)]">Current: {retentionDays === 0 ? 'Forever' : `${retentionDays} days`}</span>
+        </div>
+      </div>
+
       {/* Sign out */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
         <h2 className="font-semibold text-lg mb-1">Sign out</h2>
@@ -186,4 +242,12 @@ export default function SettingsPage() {
       </div>
     </div>
   );
+
+  async function updatePreference(key: string, value: any) {
+    try {
+      await api.post('/api/auth/me/preferences', { [key]: value });
+    } catch {
+      flash('Failed to update preference', true);
+    }
+  }
 }

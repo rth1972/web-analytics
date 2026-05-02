@@ -69,3 +69,87 @@ export async function sendWelcomeEmail(email: string) {
     `,
   });
 }
+
+export async function sendWeeklyReport(email: string, userId: string, prisma: any) {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const websites = await prisma.website.findMany({ where: { userId } });
+
+  let html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:auto">
+      <h2 style="color:#4f46e5">Weekly Analytics Report</h2>
+      <p>Here's your website performance for the past 7 days:</p>
+  `;
+
+  for (const w of websites) {
+    const [pageViews, sessions, events] = await Promise.all([
+      prisma.pageView.count({ where: { websiteId: w.id, timestamp: { gte: sevenDaysAgo } } }),
+      prisma.session.count({ where: { websiteId: w.id, startTime: { gte: sevenDaysAgo } } }),
+      prisma.event.count({ where: { websiteId: w.id, timestamp: { gte: sevenDaysAgo } } }),
+    ]);
+
+    html += `
+      <div style="margin:16px 0;padding:16px;background:#f9fafb;border-radius:8px">
+        <h3 style="margin:0 0 8px 0;color:#111827">${w.name}</h3>
+        <div style="display:flex;gap:24px;font-size:14px">
+          <span>Page Views: <strong>${pageViews}</strong></span>
+          <span>Visitors: <strong>${sessions}</strong></span>
+          <span>Events: <strong>${events}</strong></span>
+        </div>
+      </div>
+    `;
+  }
+
+  html += `
+      <p style="color:#888;font-size:13px">View more details on your <a href="${APP_URL}" style="color:#4f46e5">dashboard</a>.</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"Web Analytics" <${FROM}>`,
+    to: email,
+    subject: 'Your Weekly Analytics Report',
+    html,
+  });
+}
+
+export async function sendMonthlyReport(email: string, userId: string, prisma: any) {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const websites = await prisma.website.findMany({ where: { userId } });
+
+  let html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:auto">
+      <h2 style="color:#4f46e5">Monthly Analytics Report</h2>
+      <p>Here's your website performance for the past 30 days:</p>
+  `;
+
+  for (const w of websites) {
+    const [pageViews, sessions, events] = await Promise.all([
+      prisma.pageView.count({ where: { websiteId: w.id, timestamp: { gte: thirtyDaysAgo } } }),
+      prisma.session.count({ where: { websiteId: w.id, startTime: { gte: thirtyDaysAgo } } }),
+      prisma.event.count({ where: { websiteId: w.id, timestamp: { gte: thirtyDaysAgo } } }),
+    ]);
+
+    html += `
+      <div style="margin:16px 0;padding:16px;background:#f9fafb;border-radius:8px">
+        <h3 style="margin:0 0 8px 0;color:#111827">${w.name}</h3>
+        <div style="display:flex;gap:24px;font-size:14px">
+          <span>Page Views: <strong>${pageViews}</strong></span>
+          <span>Visitors: <strong>${sessions}</strong></span>
+          <span>Events: <strong>${events}</strong></span>
+        </div>
+      </div>
+    `;
+  }
+
+  html += `
+      <p style="color:#888;font-size:13px">View more details on your <a href="${APP_URL}" style="color:#4f46e5">dashboard</a>.</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"Web Analytics" <${FROM}>`,
+    to: email,
+    subject: 'Your Monthly Analytics Report',
+    html,
+  });
+}

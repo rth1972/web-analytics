@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar,
+  ResponsiveContainer, Scatter, Cell, BarChart, Bar,
 } from 'recharts';
 import { api } from '@/lib/api';
 
@@ -20,6 +20,7 @@ interface TopPage    { page: string; views: number }
 interface Referrer   { referrer: string; visits: number }
 interface DeviceRow  { device: string; count: number }
 interface BrowserRow { browser: string; count: number }
+interface OsRow      { os: string; count: number }
 interface CountryRow { country: string; visitors: number }
 interface Website    { id: string; name: string; domain: string }
 
@@ -102,7 +103,9 @@ export default function Dashboard() {
   const [referrers,      setReferrers]      = useState<Referrer[]>([]);
   const [devices,        setDevices]        = useState<DeviceRow[]>([]);
   const [browsers,       setBrowsers]       = useState<BrowserRow[]>([]);
+  const [os,             setOs]             = useState<OsRow[]>([]);
   const [countries,      setCountries]      = useState<CountryRow[]>([]);
+  const [annotations,   setAnnotations]   = useState<{ id: string; date: string; label: string; color: string }[]>([]);
 
   useEffect(() => {
     api.get('/api/websites')
@@ -122,13 +125,15 @@ export default function Dashboard() {
     const q = `?period=${period}`;
     const base = `/api/dashboard/${selectedWebsite}`;
 
-    const [s, p, r, d, b, c] = await Promise.allSettled([
+    const [s, p, r, d, b, o, c, a] = await Promise.allSettled([
       api.get(`${base}/stats${q}`).then(x => x.json()),
       api.get(`${base}/pages${q}`).then(x => x.json()),
       api.get(`${base}/referrers${q}`).then(x => x.json()),
       api.get(`${base}/devices${q}`).then(x => x.json()),
       api.get(`${base}/browsers${q}`).then(x => x.json()),
+      api.get(`${base}/os${q}`).then(x => x.json()),
       api.get(`${base}/countries${q}`).then(x => x.json()),
+      api.get(`/api/annotations/${selectedWebsite}`).then(x => x.json()),
     ]);
 
     if (s.status === 'fulfilled') setStats(s.value);
@@ -136,12 +141,26 @@ export default function Dashboard() {
     if (r.status === 'fulfilled') setReferrers(toArray<Referrer>(r.value));
     if (d.status === 'fulfilled') setDevices(toArray<DeviceRow>(d.value));
     if (b.status === 'fulfilled') setBrowsers(toArray<BrowserRow>(b.value));
+    if (o.status === 'fulfilled') setOs(toArray<OsRow>(o.value));
     if (c.status === 'fulfilled') setCountries(toArray<CountryRow>(c.value));
+    if (a.status === 'fulfilled') setAnnotations(a.value);
 
     setStatsLoading(false);
   }, [selectedWebsite, period]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  async function exportData(type: 'pageviews' | 'sessions' | 'events') {
+    const url = `/api/export/${selectedWebsite}/${type}?period=${period}&format=csv`;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth-token') : null;
+    const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3456'}${url}`;
+    const link = document.createElement('a');
+    link.href = fullUrl;
+    if (token) link.href += `&token=${token}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   if (loading) return (
     <div className="flex h-full items-center justify-center">
@@ -161,13 +180,27 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-[var(--muted-foreground)]">Overview of your website analytics</p>
         </div>
         <div className="flex items-center gap-3">
           {statsLoading && <span className="text-xs text-[var(--muted-foreground)]">Refreshing…</span>}
+          <div className="flex gap-2">
+            <button onClick={() => exportData('pageviews')}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--muted)]">
+              Export PV
+            </button>
+            <button onClick={() => exportData('sessions')}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--muted)]">
+              Export Sessions
+            </button>
+            <button onClick={() => exportData('events')}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--muted)]">
+              Export Events
+            </button>
+          </div>
           <select value={selectedWebsite} onChange={e => setSelected(e.target.value)}
             className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm">
             {websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -199,27 +232,44 @@ export default function Dashboard() {
           sub="duration" subColor="text-[var(--muted-foreground)]" />
       </div>
 
-      {/* Traffic chart */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-6 text-lg font-semibold">Page Views Over Time</h2>
-        <div className="h-72">
-          {(stats?.pageViewsByDay?.length ?? 0) > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats!.pageViewsByDay}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={12} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={12} />
-                <Tooltip contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8 }} />
-                <Line type="monotone" dataKey="views" stroke="var(--primary)" strokeWidth={2} dot={{ fill: 'var(--primary)', r: 3 }} activeDot={{ r: 5 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">
-              No data for this period.
-            </div>
-          )}
-        </div>
-      </div>
+       {/* Traffic chart */}
+       <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+         <h2 className="mb-6 text-lg font-semibold">Page Views Over Time</h2>
+         <div className="h-72">
+           {(stats?.pageViewsByDay?.length ?? 0) > 0 ? (
+             <ResponsiveContainer width="100%" height="100%">
+               <LineChart data={stats!.pageViewsByDay}>
+                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                 <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={12} />
+                 <YAxis stroke="var(--muted-foreground)" fontSize={12} />
+                 <Tooltip contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8 }} />
+                 <Line type="monotone" dataKey="views" stroke="var(--primary)" strokeWidth={2} dot={{ fill: 'var(--primary)', r: 3 }} activeDot={{ r: 5 }} />
+                 {annotations.length > 0 && (
+                   <Scatter data={annotations.map(a => ({ date: a.date.split('T')[0], label: a.label, color: a.color }))} fill="var(--foreground)">
+                     {annotations.map((a, i) => (
+                       <Cell key={i} fill={a.color} />
+                     ))}
+                   </Scatter>
+                 )}
+               </LineChart>
+             </ResponsiveContainer>
+           ) : (
+             <div className="flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">
+               No data for this period.
+             </div>
+           )}
+         </div>
+         {annotations.length > 0 && (
+           <div className="mt-4 flex flex-wrap gap-3">
+             {annotations.map(a => (
+               <div key={a.id} className="flex items-center gap-1.5 text-xs" style={{ color: a.color }}>
+                 <div className="h-2 w-2 rounded-full" style={{ backgroundColor: a.color }} />
+                 {a.label} ({new Date(a.date).toLocaleDateString()})
+               </div>
+             ))}
+           </div>
+         )}
+       </div>
 
       {/* Top pages + Referrers */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -227,8 +277,8 @@ export default function Dashboard() {
         <BreakdownTable title="Traffic Sources" rows={referrers} keyCol="referrer" valCol="visits" />
       </div>
 
-      {/* Devices + Browsers */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* Devices + Browsers + OS */}
+      <div className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
           <h2 className="mb-6 text-lg font-semibold">Devices</h2>
           {devices.length > 0 ? (
@@ -248,6 +298,7 @@ export default function Dashboard() {
           )}
         </div>
         <BreakdownTable title="Browsers" rows={browsers} keyCol="browser" valCol="count" />
+        <BreakdownTable title="Operating Systems" rows={os} keyCol="os" valCol="count" />
       </div>
 
       {/* Countries */}

@@ -248,11 +248,36 @@ router.get('/me', requireAuth, async (req, res) => {
       id: true, username: true, email: true, role: true,
       emailVerified: true, twoFactorEnabled: true,
       approved: true, createdAt: true,
+      weeklyReports: true, monthlyReports: true, dataRetentionDays: true,
     },
   });
 
   if (!user) return res.status(404).json({ error: 'User not found.' });
   res.json(user);
+});
+
+// Update user preferences
+router.post('/me/preferences', requireAuth, async (req, res) => {
+  try {
+    const prisma = (req as any).prisma;
+    const authUser = (req as any).user as AuthUser;
+    const { weeklyReports, monthlyReports, dataRetentionDays } = req.body;
+
+    const data: any = {};
+    if (weeklyReports !== undefined) data.weeklyReports = weeklyReports;
+    if (monthlyReports !== undefined) data.monthlyReports = monthlyReports;
+    if (dataRetentionDays !== undefined) data.dataRetentionDays = dataRetentionDays;
+
+    await prisma.user.update({
+      where: { id: authUser.userId },
+      data,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Preferences update error:', err);
+    res.status(500).json({ error: 'Failed to update preferences.' });
+  }
 });
 
 export default router;

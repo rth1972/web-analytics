@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Globe, Trash2, Copy, Check, Plus, X } from 'lucide-react';
+import { Globe, Trash2, Copy, Check, Plus, X, Share2 } from 'lucide-react';
 import { api, API_URL } from '@/lib/api';
 
 interface Website {
@@ -10,6 +10,8 @@ interface Website {
   domain: string;
   createdAt: string;
   isActive: boolean;
+  publicEnabled: boolean;
+  publicToken: string | null;
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -77,14 +79,14 @@ function SnippetModal({ website, onClose }: { website: Website; onClose: () => v
 }
 
 export default function WebsitesPage() {
-  const [websites,    setWebsites]    = useState<Website[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [showAdd,     setShowAdd]     = useState(false);
-  const [name,        setName]        = useState('');
-  const [domain,      setDomain]      = useState('');
-  const [adding,      setAdding]      = useState(false);
-  const [error,       setError]       = useState('');
-  const [snippetFor,  setSnippetFor]  = useState<Website | null>(null);
+  const [websites,   setWebsites]   = useState<Website[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [showAdd,    setShowAdd]    = useState(false);
+  const [name,       setName]       = useState('');
+  const [domain,     setDomain]     = useState('');
+  const [adding,     setAdding]     = useState(false);
+  const [error,      setError]      = useState('');
+  const [snippetFor, setSnippetFor] = useState<Website | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -103,10 +105,7 @@ export default function WebsitesPage() {
     setError('');
     try {
       const res = await api.post('/api/websites', { name: name.trim(), domain: domain.trim() });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || 'Failed to create');
-      }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed to create'); }
       setName(''); setDomain(''); setShowAdd(false);
       load();
     } catch (e: any) {
@@ -122,6 +121,14 @@ export default function WebsitesPage() {
     load();
   };
 
+  const togglePublic = async (w: Website) => {
+    const res = await api.post(`/api/websites/${w.id}/public/toggle`, {});
+    if (res.ok) load();
+  };
+
+  const publicUrl = (w: Website) =>
+    `${window.location.origin}/public/${w.publicToken}`;
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -131,8 +138,7 @@ export default function WebsitesPage() {
         </div>
         <button onClick={() => { setShowAdd(true); setError(''); }}
           className="flex items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">
-          <Plus className="h-4 w-4" />
-          Add Website
+          <Plus className="h-4 w-4" /> Add Website
         </button>
       </div>
 
@@ -147,11 +153,11 @@ export default function WebsitesPage() {
               className="flex-1 min-w-[160px] rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]"
               onKeyDown={e => e.key === 'Enter' && add()} />
             <button onClick={add} disabled={adding}
-              className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90 transition-opacity">
+              className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90">
               {adding ? 'Adding…' : 'Add'}
             </button>
             <button onClick={() => setShowAdd(false)}
-              className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm hover:bg-[var(--muted)] transition-colors">
+              className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm hover:bg-[var(--muted)]">
               Cancel
             </button>
           </div>
@@ -169,33 +175,50 @@ export default function WebsitesPage() {
       ) : (
         <div className="space-y-3">
           {websites.map(w => (
-            <div key={w.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary)]/10">
-                  <Globe className="h-5 w-5 text-[var(--primary)]" />
+            <div key={w.id} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary)]/10">
+                    <Globe className="h-5 w-5 text-[var(--primary)]" />
+                  </div>
+                  <div>
+                    <div className="font-semibold">{w.name}</div>
+                    <div className="text-sm text-[var(--muted-foreground)]">{w.domain}</div>
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${w.isActive ? 'bg-green-500/15 text-green-400' : 'bg-[var(--muted)] text-[var(--muted-foreground)]'}`}>
+                    {w.isActive ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
-                <div>
-                  <div className="font-semibold">{w.name}</div>
-                  <div className="text-sm text-[var(--muted-foreground)]">{w.domain}</div>
+                <div className="flex items-center gap-2">
+                  <a href={`/?site=${w.id}`}
+                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--muted)] transition-colors">
+                    View Stats
+                  </a>
+                  <button onClick={() => setSnippetFor(w)}
+                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--muted)] transition-colors">
+                    Get Snippet
+                  </button>
+                  <button onClick={() => togglePublic(w)}
+                    title={w.publicEnabled ? 'Disable public dashboard' : 'Enable public dashboard'}
+                    className={`rounded-lg p-2 transition-colors ${w.publicEnabled ? 'text-green-400 hover:bg-green-500/10' : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)]'}`}>
+                    <Share2 className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => remove(w.id)}
+                    className="rounded-lg p-2 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-400 transition-colors">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${w.isActive ? 'bg-green-500/15 text-green-400' : 'bg-[var(--muted)] text-[var(--muted-foreground)]'}`}>
-                  {w.isActive ? 'Active' : 'Inactive'}
-                </span>
               </div>
-              <div className="flex items-center gap-2">
-                <a href={`/?site=${w.id}`}
-                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--muted)] transition-colors">
-                  View Stats
-                </a>
-                <button onClick={() => setSnippetFor(w)}
-                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--muted)] transition-colors">
-                  Get Snippet
-                </button>
-                <button onClick={() => remove(w.id)}
-                  className="rounded-lg p-2 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-400 transition-colors">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+
+              {/* Public dashboard link */}
+              {w.publicEnabled && w.publicToken && (
+                <div className="flex items-center gap-3 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-2.5">
+                  <Share2 className="h-3.5 w-3.5 text-green-400 shrink-0" />
+                  <span className="text-xs text-[var(--muted-foreground)]">Public dashboard:</span>
+                  <code className="flex-1 text-xs truncate text-green-400">{publicUrl(w)}</code>
+                  <CopyButton text={publicUrl(w)} />
+                </div>
+              )}
             </div>
           ))}
         </div>

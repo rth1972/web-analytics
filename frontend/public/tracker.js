@@ -1,156 +1,144 @@
-/**
- * Web Analytics Tracker Script
- * 
- * Usage:
- * 1. Add this script to your website with your website ID
- * 2. The tracker will automatically collect page views and basic info
- * 
- * Example:
- * <script src="https://your-analytics-domain.com/tracker.js" data-website-id="your-website-id"></script>
- */
-
 (function() {
   'use strict';
 
-  const SCRIPT = document.currentScript;
-  const WEBSITE_ID = SCRIPT?.getAttribute('data-website-id');
-  const API_URL = SCRIPT?.getAttribute('data-api-url') || 'http://localhost:3001';
-  const TRACKER_VERSION = '1.0.0';
+  var API_URL = 'https://analytics.robintehofstee.com';
+  var sessionId = null;
+  var queuedEvents = [];
 
-  if (!WEBSITE_ID) {
-    console.warn('[Analytics] Website ID is required');
-    return;
+  function getSessionId() {
+    if (sessionId) return sessionId;
+    try {
+      var stored = localStorage.getItem('_wa_sid');
+      if (stored) { sessionId = stored; return sessionId; }
+    } catch(e) {}
+    sessionId = generateId();
+    try { localStorage.setItem('_wa_sid', sessionId); } catch(e) {}
+    return sessionId;
   }
 
-  let sessionId = sessionStorage.getItem('analytics_session_id');
-  if (!sessionId) {
-    sessionId = generateUUID();
-    sessionStorage.setItem('analytics_session_id', sessionId);
-  }
-
-  function generateUUID() {
+  function generateId() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
   }
 
-  function getDeviceType() {
-    const ua = navigator.userAgent;
-    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
-      return 'tablet';
-    }
-    if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
-      return 'mobile';
-    }
-    return 'desktop';
-  }
-
-  function getBrowser() {
-    const ua = navigator.userAgent;
-    if (ua.indexOf('Firefox') > -1) return 'Firefox';
-    if (ua.indexOf('SamsungBrowser') > -1) return 'Samsung Browser';
-    if (ua.indexOf('Opera') > -1 || ua.indexOf('OPR') > -1) return 'Opera';
-    if (ua.indexOf('Edge') > -1) return 'Edge';
-    if (ua.indexOf('Edg') > -1) return 'Edge';
-    if (ua.indexOf('Chrome') > -1) return 'Chrome';
-    if (ua.indexOf('Safari') > -1) return 'Safari';
-    if (ua.indexOf('MSIE') > -1 || ua.indexEvent('Trident/') > -1) return 'IE';
-    return 'Unknown';
-  }
-
-  function getOS() {
-    const ua = navigator.userAgent;
-    if (ua.indexOf('Win') > -1) return 'Windows';
-    if (ua.indexOf('Mac') > -1) return 'MacOS';
-    if (ua.indexOf('Linux') > -1) return 'Linux';
-    if (ua.indexOf('Android') > -1) return 'Android';
-    if (ua.indexOf('like Mac') > -1) return 'iOS';
-    return 'Unknown';
-  }
-
-  async function sendBeacon(data) {
+  function getUTMParams() {
+    var params = {};
     try {
-      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-      navigator.sendBeacon(`${API_URL}/api/analytics/track/pageview`, blob);
-    } catch (e) {
-      console.error('[Analytics] Failed to send beacon:', e);
+      var search = window.location.search.substring(1);
+      if (!search) return params;
+      var pairs = search.split('&');
+      for (var i = 0; i < pairs.length; i++) {
+        var pair = pairs[i].split('=');
+        var key = decodeURIComponent(pair[0] || '');
+        var val = decodeURIComponent(pair[1] || '');
+        if (key === 'utm_source')   params.utmSource = val;
+        if (key === 'utm_medium')   params.utmMedium = val;
+        if (key === 'utm_campaign') params.utmCampaign = val;
+        if (key === 'utm_term')     params.utmTerm = val;
+        if (key === 'utm_content')  params.utmContent = val;
+      }
+    } catch(e) {}
+    return params;
+  }
+
+  function getDeviceInfo() {
+    try {
+      var ua = navigator.userAgent;
+      var device = 'Desktop';
+      if (/mobile/i.test(ua)) device = 'Mobile';
+      else if (/tablet/i.test(ua) || /ipad/i.test(ua)) device = 'Tablet';
+      var browser = 'Unknown';
+      if (/chrome/i.test(ua) && !/edge/i.test(ua)) browser = 'Chrome';
+      else if (/firefox/i.test(ua)) browser = 'Firefox';
+      else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari';
+      else if (/edge/i.test(ua)) browser = 'Edge';
+      var os = 'Unknown';
+      if (/windows/i.test(ua)) os = 'Windows';
+      else if (/mac/i.test(ua)) os = 'MacOS';
+      else if (/linux/i.test(ua)) os = 'Linux';
+      else if (/android/i.test(ua)) os = 'Android';
+      else if (/ios|iphone|ipad/i.test(ua)) os = 'iOS';
+      return { device: device, browser: browser, os: os };
+    } catch(e) { return {}; }
+  }
+
+  function getScreenSize() {
+    try { return window.screen.width + 'x' + window.screen.height; } catch(e) { return null; }
+  }
+
+  function sendBeacon(url, data) {
+    try {
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(url, JSON.stringify(data));
+        return;
+      }
+    } catch(e) {}
+    fetch(url, { method: 'POST', body: JSON.stringify(data), keepalive: true })
+      .catch(function() { queuedEvents.push(data); });
+  }
+
+  function trackPageview(websiteId) {
+    if (!websiteId) return;
+    var utm = getUTMParams();
+    var info = getDeviceInfo();
+    var data = {
+      websiteId: websiteId,
+      page: window.location.pathname + window.location.search,
+      referrer: document.referrer || null,
+      userAgent: navigator.userAgent,
+      device: info.device || null,
+      browser: info.browser || null,
+      os: info.os || null,
+      screenSize: getScreenSize(),
+      sessionId: getSessionId(),
+    };
+    Object.assign(data, utm);
+    sendBeacon(API_URL + '/api/analytics/track/pageview', data);
+    // Flush queued events
+    while (queuedEvents.length > 0) {
+      var evt = queuedEvents.shift();
+      sendBeacon(API_URL + '/api/analytics/track/pageview', evt);
     }
   }
 
-  function trackPageView() {
-    const data = {
-      websiteId: WEBSITE_ID,
-      page: window.location.pathname,
-      referrer: document.referrer || '',
-      userAgent: navigator.userAgent,
-      device: getDeviceType(),
-      browser: getBrowser(),
-      os: getOS(),
-      screenSize: `${window.screen.width}x${window.screen.height}`,
-      sessionId: sessionId,
-      timestamp: new Date().toISOString(),
-    };
-
-    fetch(`${API_URL}/api/analytics/track/pageview`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-      keepalive: true,
-    }).catch(err => console.error('[Analytics] Track error:', err));
+  function trackEvent(websiteId, name, category, data) {
+    if (!websiteId || !name) return;
+    sendBeacon(API_URL + '/api/analytics/track/event', {
+      websiteId: websiteId,
+      name: name,
+      category: category || null,
+      data: data || null,
+      sessionId: getSessionId(),
+    });
   }
 
-  window.analytics = {
-    track: function(eventName, eventData) {
-      fetch(`${API_URL}/api/analytics/track/event`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          websiteId: WEBSITE_ID,
-          name: eventName,
-          data: eventData,
-          sessionId: sessionId,
-        }),
-      }).catch(err => console.error('[Analytics] Event error:', err));
-    },
-    identify: function(userId, userData) {
-      sessionStorage.setItem('analytics_user_id', userId);
-      if (userData) {
-        sessionStorage.setItem('analytics_user_data', JSON.stringify(userData));
-      }
-    },
+  // Public API
+  window.Viewly = {
+    trackPageview: trackPageview,
+    trackEvent: trackEvent,
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', trackPageView);
-  } else {
-    trackPageView();
+  // Auto-track pageview if data-website-id is set
+  function autoTrack() {
+    var script = document.currentScript || document.querySelector('script[data-website-id]');
+    if (!script) return;
+    var websiteId = script.getAttribute('data-website-id');
+    if (websiteId) trackPageview(websiteId);
   }
 
-  let lastPath = window.location.pathname;
-  const observer = new MutationObserver(() => {
-    if (window.location.pathname !== lastPath) {
-      lastPath = window.location.pathname;
-      trackPageView();
-    }
-  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoTrack);
+  } else {
+    autoTrack();
+  }
 
-  history.pushState = (function(original) {
-    return function() {
-      original.apply(this, arguments);
-      trackPageView();
-    };
-  })(history.pushState);
-
-  history.replaceState = (function(original) {
-    return function() {
-      original.apply(this, arguments);
-      trackPageView();
-    };
-  })(history.replaceState);
-
-  window.addEventListener('popstate', trackPageView);
-
-  console.log(`[Analytics] Tracker v${TRACKER_VERSION} initialized for website ${WEBSITE_ID}`);
+  // SPA: re-track on pushState/replaceState
+  try {
+    var originalPush = history.pushState;
+    var originalReplace = history.replaceState;
+    history.pushState = function() { originalPush.apply(this, arguments); setTimeout(autoTrack, 0); };
+    history.replaceState = function() { originalReplace.apply(this, arguments); setTimeout(autoTrack, 0); };
+  } catch(e) {}
 })();

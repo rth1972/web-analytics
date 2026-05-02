@@ -1,4 +1,7 @@
-// Removed — logout is now handled client-side by clearing the auth-token cookie.
+import { NextResponse } from 'next/server';
+
 export async function POST() {
-  return new Response(null, { status: 404 });
+  const res = NextResponse.json({ ok: true });
+  res.cookies.set('auth-token', '', { httpOnly: true, maxAge: 0, path: '/' });
+  return res;
 }

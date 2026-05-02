@@ -71,6 +71,35 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Toggle public dashboard sharing
+router.post('/:id/public/toggle', async (req, res) => {
+  try {
+    const prisma = (req as any).prisma;
+    const user   = (req as any).user as AuthUser;
+    const { randomBytes } = await import('crypto');
+
+    const website = await prisma.website.findUnique({ where: { id: req.params.id } });
+    if (!website) return res.status(404).json({ error: 'Website not found' });
+    if (user.role !== 'ADMIN' && website.userId !== user.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const publicEnabled = !website.publicEnabled;
+    const publicToken   = publicEnabled && !website.publicToken
+      ? randomBytes(16).toString('hex')
+      : website.publicToken;
+
+    const updated = await prisma.website.update({
+      where: { id: req.params.id },
+      data: { publicEnabled, publicToken },
+    });
+
+    res.json({ publicEnabled: updated.publicEnabled, publicToken: updated.publicToken });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to toggle public dashboard' });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
     const prisma = (req as any).prisma;

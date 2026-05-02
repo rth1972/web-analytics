@@ -7,6 +7,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── Enums ─────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum AlertType {
+  TRAFFIC_SPIKE
+  TRAFFIC_DROP
+  UPTIME_DOWN
+  UPTIME_UP
+  GOAL_REACHED
+}
+
+enum UptimeStatus {
+  UP
+  DOWN
+  UNKNOWN
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+
 model User {
   id               String    @id @default(uuid())
   username         String    @unique
@@ -21,17 +44,19 @@ model User {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  // Preferences
+  weeklyReports    Boolean   @default(false)
+  monthlyReports   Boolean   @default(false)
+  reportEmail      String?
+  dataRetentionDays Int      @default(365)
+
   websites      Website[]
   loginAttempts LoginAttempt[]
+  apiKeys       ApiKey[]
 
   @@index([username])
   @@index([email])
   @@map("users")
-}
-
-enum Role {
-  ADMIN
-  USER
 }
 
 model InviteToken {
@@ -60,44 +85,87 @@ model LoginAttempt {
   @@map("login_attempts")
 }
 
-model Website {
-  id        String   @id @default(uuid())
-  name      String
-  domain    String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  isActive  Boolean  @default(true)
+// ── API Keys ──────────────────────────────────────────────────────────────────
 
-  pageViews PageView[]
-  sessions  Session[]
-  events    Event[]
+model ApiKey {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  keyHash     String    @unique
+  keyPrefix   String    // First 8 chars shown in UI (e.g. "wa_live_")
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([keyHash])
+  @@map("api_keys")
+}
+
+// ── Websites ──────────────────────────────────────────────────────────────────
+
+model Website {
+  id              String   @id @default(uuid())
+  name            String
+  domain          String
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  isActive        Boolean  @default(true)
+
+  // Public dashboard sharing
+  publicToken     String?  @unique
+  publicEnabled   Boolean  @default(false)
+
+  // Data retention override (null = use user setting)
+  dataRetentionDays Int?
+
+  pageViews  PageView[]
+  sessions   Session[]
+  events     Event[]
+  goals      Goal[]
+  annotations Annotation[]
+  alerts     Alert[]
+  uptimeChecks UptimeCheck[]
 
   @@index([id])
   @@index([userId])
+  @@index([publicToken])
   @@map("websites")
 }
 
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
 model PageView {
-  id         String   @id @default(uuid())
-  websiteId  String
-  website    Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
-  page       String
-  referrer   String?
-  userAgent  String?
-  country    String?
-  city       String?
-  device     String?
-  browser    String?
-  os         String?
-  screenSize String?
-  ipAddress  String?
-  sessionId  String
-  timestamp  DateTime @default(now())
+  id          String   @id @default(uuid())
+  websiteId   String
+  website     Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  page        String
+  referrer    String?
+  userAgent   String?
+  country     String?
+  city        String?
+  device      String?
+  browser     String?
+  os          String?
+  screenSize  String?
+  ipAddress   String?
+  sessionId   String
+
+  // UTM parameters
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+
+  timestamp   DateTime @default(now())
 
   @@index([websiteId])
   @@index([timestamp])
   @@index([sessionId])
+  @@index([utmCampaign])
   @@map("pageviews")
 }
 
@@ -113,6 +181,7 @@ model Event {
 
   @@index([websiteId])
   @@index([timestamp])
+  @@index([name])
   @@map("events")
 }
 
@@ -130,7 +199,123 @@ model Session {
   endTime     DateTime?
   pageViews   Int       @default(0)
 
+  // UTM on session entry
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+
   @@index([websiteId])
   @@index([startTime])
   @@map("sessions")
+}
+
+// ── Goals & Conversions ───────────────────────────────────────────────────────
+
+enum GoalType {
+  PAGE_VISIT    // visitor lands on a specific page
+  EVENT         // a specific event fires
+}
+
+model Goal {
+  id          String    @id @default(uuid())
+  websiteId   String
+  website     Website   @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  name        String
+  type        GoalType
+  // For PAGE_VISIT: match pattern (e.g. "/thank-you")
+  // For EVENT: event name to match
+  value       String
+  createdAt   DateTime  @default(now())
+
+  conversions GoalConversion[]
+
+  @@index([websiteId])
+  @@map("goals")
+}
+
+model GoalConversion {
+  id        String   @id @default(uuid())
+  goalId    String
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  sessionId String
+  timestamp DateTime @default(now())
+
+  @@index([goalId])
+  @@index([timestamp])
+  @@map("goal_conversions")
+}
+
+// ── Annotations ───────────────────────────────────────────────────────────────
+
+model Annotation {
+  id        String   @id @default(uuid())
+  websiteId String
+  website   Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  date      DateTime
+  label     String
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+
+  @@index([websiteId])
+  @@index([date])
+  @@map("annotations")
+}
+
+// ── Alerts ────────────────────────────────────────────────────────────────────
+
+enum AlertCondition {
+  ABOVE   // traffic above threshold
+  BELOW   // traffic below threshold
+}
+
+model Alert {
+  id          String         @id @default(uuid())
+  websiteId   String
+  website     Website        @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  name        String
+  type        AlertType
+  condition   AlertCondition
+  threshold   Int            // e.g. 100 visitors/hour
+  windowHours Int            @default(1)
+  enabled     Boolean        @default(true)
+  webhookUrl  String?
+  lastFiredAt DateTime?
+  createdAt   DateTime       @default(now())
+
+  @@index([websiteId])
+  @@map("alerts")
+}
+
+// ── Uptime Monitoring ─────────────────────────────────────────────────────────
+
+model UptimeCheck {
+  id           String       @id @default(uuid())
+  websiteId    String
+  website      Website      @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  url          String
+  intervalMins Int          @default(5)
+  enabled      Boolean      @default(true)
+  lastStatus   UptimeStatus @default(UNKNOWN)
+  lastCheckedAt DateTime?
+  createdAt    DateTime     @default(now())
+
+  results UptimeResult[]
+
+  @@index([websiteId])
+  @@map("uptime_checks")
+}
+
+model UptimeResult {
+  id           String       @id @default(uuid())
+  checkId      String
+  check        UptimeCheck  @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  status       UptimeStatus
+  responseTime Int?         // ms
+  statusCode   Int?
+  error        String?
+  checkedAt    DateTime     @default(now())
+
+  @@index([checkId])
+  @@index([checkedAt])
+  @@map("uptime_results")
 }

@@ -1,6 +1,6 @@
-# Web Analytics
+# Viewly — Self-Hosted Web Analytics
 
-A self-hosted, privacy-focused web analytics platform built with Next.js, Express, Prisma and PostgreSQL. Tracks page views, sessions, devices, countries, referrers and custom events — with a real-time dashboard, multi-user support, 2FA, and role-based access control.
+A self-hosted, privacy-focused web analytics platform. Tracks page views, sessions, devices, countries, referrers, UTM campaigns, and custom events — with real-time dashboards, goal tracking, uptime monitoring, alerts, API keys, and multi-user support with 2FA.
 
 ## Table of Contents
 
@@ -9,23 +9,22 @@ A self-hosted, privacy-focused web analytics platform built with Next.js, Expres
 - [Backend Setup](#backend-setup)
 - [Database Setup (PostgreSQL)](#database-setup-postgresql)
 - [Dashboard Setup](#dashboard-setup)
+- [Environment Variables](#environment-variables)
 - [Reverse Proxy & HTTPS](#reverse-proxy--https)
   - [Apache](#apache)
   - [Nginx](#nginx)
 - [User Management](#user-management)
-  - [Creating the first admin account](#creating-the-first-admin-account)
-  - [Enabling public signup](#enabling-public-signup)
-  - [Approving users](#approving-users)
-  - [Two-factor authentication](#two-factor-authentication)
 - [Adding a Website to Track](#adding-a-website-to-track)
 - [Installing the Tracker](#installing-the-tracker)
-  - [Next.js App](#nextjs-app)
+  - [Next.js](#nextjs)
   - [Plain HTML](#plain-html)
-  - [Any JavaScript Framework](#any-javascript-framework)
+  - [Any JS Framework](#any-js-framework)
   - [WordPress](#wordpress)
 - [Content Security Policy](#content-security-policy)
 - [Custom Event Tracking](#custom-event-tracking)
+- [Features](#features)
 - [API Reference](#api-reference)
+- [Syncing Mac → Server](#syncing-mac--server)
 - [Updating](#updating)
 - [Troubleshooting](#troubleshooting)
 
@@ -35,21 +34,26 @@ A self-hosted, privacy-focused web analytics platform built with Next.js, Expres
 
 ```
 web-analytics/
-├── backend/      # Node.js + Express + Prisma API (port 3456)
+├── backend/                  # Node.js + Express + Prisma (port 3456)
 │   ├── src/
-│   │   ├── routes/       # auth, websites, dashboard, analytics, admin
-│   │   ├── middleware/   # JWT auth, rate limiting
-│   │   └── services/     # email (nodemailer)
+│   │   ├── routes/           # auth, websites, dashboard, analytics,
+│   │   │                     # goals, alerts, uptime, export, apikeys,
+│   │   │                     # annotations, admin, public
+│   │   ├── middleware/       # JWT auth, rate limiting
+│   │   └── services/         # email, uptime monitor, traffic monitor,
+│   │                         # report cron, retention cron
 │   └── prisma/
-│       └── schema.prisma # PostgreSQL schema
-└── frontend/     # Next.js dashboard (port 3000)
+│       └── schema.prisma     # PostgreSQL schema
+└── frontend/                 # Next.js dashboard (port 3000)
     └── src/
-        ├── app/          # pages: dashboard, websites, realtime, settings, admin, help
-        ├── lib/          # api client (JWT-aware fetch wrapper)
-        └── middleware.ts # route protection
+        ├── app/              # pages: dashboard, websites, realtime,
+        │                     # goals, uptime, alerts, keys, settings,
+        │                     # admin, help, login, register
+        ├── lib/              # JWT-aware API client
+        └── middleware.ts     # route protection
 ```
 
-The backend exposes a REST API and serves `tracker.js`. The dashboard is a separate Next.js app that reads from the backend. Websites you want to track load `tracker.js` and POST data to the backend API. All dashboard routes are protected by JWT authentication.
+The backend is the single source of truth. It serves `tracker.js`, handles all API calls, and manages auth. The dashboard is a separate Next.js app. The login flow proxies through the dashboard's own API route (`/api/auth/login`) to the backend, keeping everything same-origin.
 
 ---
 
@@ -58,8 +62,8 @@ The backend exposes a REST API and serves `tracker.js`. The dashboard is a separ
 - Node.js 18 or higher
 - npm
 - PostgreSQL 14 or higher
-- A server with a public IP
-- A domain name (required for HTTPS, which is required by modern browsers for tracking)
+- A server with a public IP (for internet-accessible tracking)
+- A domain name with HTTPS (required by modern browsers for cross-origin tracking)
 
 ---
 
@@ -70,19 +74,13 @@ cd backend
 npm install
 ```
 
-Create a `.env` file in `backend/`:
+Create `backend/.env` (see [Environment Variables](#environment-variables) for all options):
 
 ```env
 DATABASE_URL="postgresql://analytics:yourpassword@localhost:5432/analytics"
 NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
-SMTP_HOST="mail.yourdomain.com"
-SMTP_PORT="587"
-SMTP_USER="noreply@yourdomain.com"
-SMTP_PASS="your-email-password"
-SMTP_FROM="noreply@yourdomain.com"
-APP_URL="https://dashboard.yourdomain.com"
-ALLOW_SIGNUP="false"
 PORT="3456"
+ALLOW_SIGNUP="false"
 ```
 
 Generate a secret:
@@ -91,24 +89,24 @@ Generate a secret:
 openssl rand -base64 32
 ```
 
-Then run migrations and start:
+Run migrations and start:
 
 ```bash
 npx prisma generate
 npx prisma db push
-npm run dev       # development
+npm run dev              # development
 npm run build && npm start   # production
 ```
 
-### Running in Production with PM2
+### Production with PM2
 
 ```bash
 npm install -g pm2
 cd backend
 npm run build
-pm2 start dist/index.js --name web-analytics-backend
+pm2 start "npm start" --name analytics-backend
 pm2 save
-pm2 startup
+pm2 startup   # follow the printed command
 ```
 
 ---
@@ -118,7 +116,6 @@ pm2 startup
 ```bash
 sudo apt install postgresql postgresql-contrib -y
 sudo systemctl enable --now postgresql
-
 sudo -u postgres psql
 ```
 
@@ -131,7 +128,7 @@ GRANT ALL PRIVILEGES ON DATABASE analytics TO analytics;
 \q
 ```
 
-Then run the migration:
+Run the migration:
 
 ```bash
 cd backend
@@ -147,38 +144,105 @@ cd frontend
 npm install
 ```
 
-Create `.env.local` in `frontend/`:
+Create `frontend/.env.local` (see [Environment Variables](#environment-variables)):
 
 ```env
 NEXT_PUBLIC_API_URL=https://analytics.yourdomain.com
+INTERNAL_API_URL=http://localhost:3456
 NEXTAUTH_SECRET=same-secret-as-backend
-ALLOW_SIGNUP=false
+NEXTAUTH_URL=https://dashboard.yourdomain.com
 ```
 
-> `NEXTAUTH_SECRET` must be identical in both backend `.env` and frontend `.env.local` — it is used to sign and verify JWT tokens.
+Build and start:
 
 ```bash
 npm run build
 npm start   # starts on http://localhost:3000
 ```
 
-### Running in Production with PM2
+### Production with PM2
 
 ```bash
-pm2 start "npm start" --name web-analytics-frontend
+pm2 start "npm start" --name analytics-frontend
 pm2 save
 ```
 
 ---
 
+## Environment Variables
+
+### `backend/.env`
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | ✓ | PostgreSQL connection string |
+| `NEXTAUTH_SECRET` | ✓ | Secret for signing JWT tokens — must match frontend |
+| `PORT` | | Backend port (default: `3456`) |
+| `ALLOW_SIGNUP` | | Set to `true` to allow public registration (default: `false`) |
+| `SMTP_HOST` | | SMTP server hostname for email (optional) |
+| `SMTP_PORT` | | SMTP port (default: `587`) |
+| `SMTP_USER` | | SMTP username |
+| `SMTP_PASS` | | SMTP password |
+| `SMTP_FROM` | | From address for sent emails |
+| `APP_URL` | | Dashboard URL — used in email links (e.g. `https://dashboard.yourdomain.com`) |
+
+### `frontend/.env.local`
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_API_URL` | ✓ | Public URL of your backend (used by browsers) |
+| `INTERNAL_API_URL` | ✓ | Internal URL of backend for server-side proxy (e.g. `http://localhost:3456`) |
+| `NEXTAUTH_SECRET` | ✓ | Must be **identical** to `backend/.env` `NEXTAUTH_SECRET` |
+| `NEXTAUTH_URL` | ✓ | Public URL of your dashboard |
+
+> **Critical:** `NEXTAUTH_SECRET` must be exactly the same in both files. The backend signs JWT tokens with it; the frontend middleware verifies them with it. A mismatch causes login to silently redirect back to `/login`.
+
+### Local development vs production
+
+**On your server** (`frontend/.env.local`):
+```env
+NEXT_PUBLIC_API_URL=https://analytics.yourdomain.com
+INTERNAL_API_URL=http://localhost:3456
+NEXTAUTH_SECRET=your-shared-secret
+NEXTAUTH_URL=https://dashboard.yourdomain.com
+```
+
+**On your Mac** (`frontend/.env.local`):
+```env
+NEXT_PUBLIC_API_URL=https://analytics.yourdomain.com
+INTERNAL_API_URL=http://localhost:3456
+NEXTAUTH_SECRET=your-shared-secret
+NEXTAUTH_URL=http://localhost:3000
+```
+
+The only difference is `NEXTAUTH_URL` — your Mac uses `localhost:3000`, the server uses the public domain.
+
+### What to commit to Git
+
+```
+✅ backend/src/
+✅ frontend/src/
+✅ README.md
+✅ .gitignore
+❌ backend/.env          — never commit (contains secrets)
+❌ frontend/.env.local   — never commit (contains secrets)
+❌ node_modules/
+❌ .next/
+❌ prisma/dev.db
+```
+
+Both `.env` and `.env.local` are already excluded in `.gitignore`.
+
+---
+
 ## Reverse Proxy & HTTPS
 
-Both the backend and the dashboard need HTTPS. Set up two subdomains:
+Set up two subdomains pointing to your server:
 
-| Service   | Example subdomain                        |
-|-----------|------------------------------------------|
-| Backend   | `analytics.yourdomain.com` → port 3456   |
-| Dashboard | `dashboard.yourdomain.com` → port 3000   |
+| Service | Subdomain | Port |
+|---------|-----------|------|
+| Backend | `analytics.yourdomain.com` | 3456 |
+| Dashboard | `dashboard.yourdomain.com` | 3000 |
 
 ### Apache
 
@@ -195,8 +259,7 @@ sudo a2enmod proxy proxy_http headers rewrite ssl
     ProxyPreserveHost On
     ProxyPass / http://localhost:3456/
     ProxyPassReverse / http://localhost:3456/
-    RequestHeader set X-Forwarded-Proto "https"
-    RequestHeader set X-Real-IP "%{REMOTE_ADDR}s"
+    RequestHeader set X-Forwarded-For "%{REMOTE_ADDR}s"
     SetEnv proxy-nokeepalive 1
     ProxyTimeout 60
 </VirtualHost>
@@ -220,6 +283,8 @@ sudo a2ensite analytics.conf analytics-dashboard.conf
 sudo systemctl reload apache2
 sudo certbot --apache -d analytics.yourdomain.com -d dashboard.yourdomain.com
 ```
+
+> Do **not** add manual `Access-Control-Allow-Origin` headers in Apache — the backend handles CORS dynamically based on registered website domains.
 
 ### Nginx
 
@@ -268,42 +333,77 @@ sudo certbot --nginx -d analytics.yourdomain.com -d dashboard.yourdomain.com
 
 ## User Management
 
-### Creating the first admin account
+### Creating the first admin
 
-Public signup is disabled by default (`ALLOW_SIGNUP=false`). Create your first admin directly in the database:
+Public signup is disabled by default. Create your first admin directly:
 
 ```bash
-# Generate a bcrypt password hash
 cd ~/web-analytics-backend
-node -e "import('./node_modules/bcryptjs/index.js').then(b => b.default.hash('yourpassword', 12).then(h => console.log(h)))"
+
+node --input-type=module << 'EOF'
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+const prisma = new PrismaClient();
+const hash = await bcrypt.hash('yourpassword', 12);
+
+await prisma.user.upsert({
+  where: { username: 'yourusername' },
+  update: { passwordHash: hash, emailVerified: true, approved: true, role: 'ADMIN' },
+  create: {
+    username: 'yourusername',
+    email: 'you@yourdomain.com',
+    passwordHash: hash,
+    role: 'ADMIN',
+    emailVerified: true,
+    approved: true,
+  },
+});
+
+console.log('Admin created successfully');
+await prisma.$disconnect();
+EOF
 ```
 
-Copy the hash, then insert the user:
+### Resetting a password
 
 ```bash
-sudo -u postgres psql analytics -c "
-INSERT INTO users (id, username, email, \"passwordHash\", role, \"emailVerified\", approved)
-VALUES (gen_random_uuid(), 'yourusername', 'you@yourdomain.com', 'PASTE_HASH_HERE', 'ADMIN', true, true);
-"
+cd ~/web-analytics-backend
+
+node --input-type=module << 'EOF'
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+const prisma = new PrismaClient();
+const hash = await bcrypt.hash('newpassword', 12);
+
+await prisma.user.update({
+  where: { username: 'yourusername' },
+  data: { passwordHash: hash },
+});
+
+console.log('Password updated');
+await prisma.$disconnect();
+EOF
 ```
 
 ### Enabling public signup
 
-When you're ready to let others sign up, set in `backend/.env`:
+Set in `backend/.env`:
 
 ```env
 ALLOW_SIGNUP=true
 ```
 
-Restart the backend. New users who register will need to verify their email and then be approved by an admin before they can log in.
+Restart the backend. New registrations require email verification and admin approval before login.
 
 ### Approving users
 
-Go to **Admin** in the sidebar. Pending users appear at the top with an Approve/Reject button. Approving sends the user a welcome email automatically.
+Go to **Admin** in the sidebar. Pending users appear at the top — click Approve or Reject.
 
 ### Two-factor authentication
 
-Users can enable 2FA from **Settings → Two-Factor Authentication**. After clicking "Set up 2FA", a QR code is shown — scan it with any TOTP app (Google Authenticator, Authy, 1Password, etc.), then enter the 6-digit code to confirm. On future logins, the user will be prompted for their code after entering their password.
+Users enable 2FA from **Settings → Two-Factor Authentication**. A QR code is shown — scan with Google Authenticator, Authy, or 1Password. On login, users are prompted for their 6-digit code after the password step.
 
 ---
 
@@ -311,18 +411,22 @@ Users can enable 2FA from **Settings → Two-Factor Authentication**. After clic
 
 1. Go to **Websites** in the sidebar
 2. Click **Add Website**
-3. Enter a name (e.g. `My Blog`) and domain (e.g. `blog.yourdomain.com` — no `https://`, no trailing slash)
-4. Click **Get Snippet** on the website card to get your pre-filled tracking snippet
+3. Enter name (e.g. `My Blog`) and domain (e.g. `myblog.com` — no `https://`, no trailing slash)
+4. Click **Get Snippet** to get your pre-filled tracking code
 
-The domain is used for CORS allowlisting — once added, that origin is automatically allowed to send tracking data to the backend.
+The domain is used for automatic CORS allowlisting. Once registered, that origin can send tracking data — no restart needed.
+
+### Public dashboard sharing
+
+On the Websites page, click the share icon on any website card to enable a public read-only dashboard. A shareable link is shown that anyone can access without logging in.
 
 ---
 
 ## Installing the Tracker
 
-### Next.js App
+### Next.js
 
-**App Router** — add to `app/layout.tsx`:
+**App Router** — `app/layout.tsx`:
 
 ```tsx
 import Script from 'next/script'
@@ -344,10 +448,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
+**Pages Router** — `pages/_app.tsx`:
+
+```tsx
+import Script from 'next/script'
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <>
+      <Component {...pageProps} />
+      <Script
+        src="https://analytics.yourdomain.com/tracker.js"
+        data-website-id="YOUR_WEBSITE_ID"
+        data-api-url="https://analytics.yourdomain.com"
+        strategy="afterInteractive"
+      />
+    </>
+  )
+}
+```
+
 Using environment variables (recommended):
 
 ```env
-# .env.local
+# .env.local on the tracked site
 NEXT_PUBLIC_ANALYTICS_URL=https://analytics.yourdomain.com
 NEXT_PUBLIC_ANALYTICS_ID=YOUR_WEBSITE_ID
 ```
@@ -361,11 +485,9 @@ NEXT_PUBLIC_ANALYTICS_ID=YOUR_WEBSITE_ID
 />
 ```
 
-The tracker automatically handles client-side navigation — page views fire on every route change without extra configuration.
-
 ### Plain HTML
 
-Add before `</body>` on every page:
+Add before `</body>`:
 
 ```html
 <script
@@ -376,11 +498,11 @@ Add before `</body>` on every page:
 ></script>
 ```
 
-### Any JavaScript Framework
+### Any JS Framework
 
-The snippet is framework-agnostic. Add it once to your root layout or `index.html`. The tracker patches `history.pushState` and `history.replaceState` automatically so SPAs (Vue, React, Svelte, Astro) are tracked without extra setup.
+The snippet works with any framework. Add it once to your root layout or `index.html`. The tracker automatically patches `history.pushState` and `history.replaceState` so SPAs (Vue, React, Svelte, Astro) track page navigations without extra setup.
 
-**Astro** — `src/layouts/BaseLayout.astro`:
+**Astro** — `src/layouts/Base.astro`:
 
 ```astro
 <script
@@ -394,7 +516,7 @@ The snippet is framework-agnostic. Add it once to your root layout or `index.htm
 
 ### WordPress
 
-Add to your theme's `footer.php` before `</body>`, or use the **Insert Headers and Footers** plugin and paste the snippet in the Footer section:
+Use the **Insert Headers and Footers** plugin and paste in the Footer section, or add directly to `footer.php` before `</body>`:
 
 ```html
 <script
@@ -423,6 +545,7 @@ async headers() {
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline' https://analytics.yourdomain.com",
         "connect-src 'self' https://analytics.yourdomain.com",
+        // add other sources your site needs
       ].join('; '),
     }],
   }]
@@ -447,16 +570,11 @@ add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsaf
 
 Once `tracker.js` is loaded, a global `analytics` object is available anywhere in your JavaScript.
 
-### Basic usage
-
 ```javascript
+// Basic
 analytics.track('event_name');
 analytics.track('event_name', { key: 'value' });
-```
 
-### Common examples
-
-```javascript
 // Button click
 document.querySelector('#cta').addEventListener('click', () => {
   analytics.track('cta_click', { label: 'Get Started' });
@@ -467,12 +585,8 @@ document.querySelector('form').addEventListener('submit', () => {
   analytics.track('form_submit', { form: 'contact' });
 });
 
-// Purchase / conversion
-analytics.track('purchase', {
-  product: 'Pro Plan',
-  price: 29.99,
-  currency: 'USD',
-});
+// Purchase
+analytics.track('purchase', { product: 'Pro Plan', price: 29.99, currency: 'USD' });
 
 // File download
 document.querySelectorAll('a[href$=".pdf"]').forEach(link => {
@@ -480,211 +594,312 @@ document.querySelectorAll('a[href$=".pdf"]').forEach(link => {
     analytics.track('file_download', { file: link.href });
   });
 });
-
-// Video play
-videoElement.addEventListener('play', () => {
-  analytics.track('video_play', { title: 'Product Demo', duration: 120 });
-});
-
-// Search
-analytics.track('search', { query: searchInput.value });
-
-// Outbound link
-document.querySelectorAll('a[href^="http"]').forEach(link => {
-  link.addEventListener('click', () => {
-    analytics.track('outbound_click', { url: link.href });
-  });
-});
 ```
 
-### React / Next.js
-
-```tsx
-// Inline handler
-<button onClick={() => analytics.track('signup_click', { plan: 'pro' })}>
-  Sign up
-</button>
-
-// useEffect for page-specific events
-useEffect(() => {
-  analytics.track('page_view_custom', { section: 'pricing' });
-}, []);
-```
-
-### Vue 3
-
-```js
-// In a component method
-methods: {
-  handleSignup() {
-    analytics.track('signup_click', { source: 'hero' });
-  }
-}
-```
-
-### TypeScript declaration
-
-Add this to a `global.d.ts` file in your project to get type hints:
+**TypeScript** — add to `global.d.ts`:
 
 ```typescript
 interface Analytics {
   track: (event: string, data?: Record<string, unknown>) => void;
 }
-
 declare const analytics: Analytics;
 ```
 
 ---
 
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| Page views & sessions | Automatic tracking with device, browser, OS, country |
+| UTM campaign tracking | Automatically captures `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content` from URLs |
+| Real-time dashboard | Live feed of active visitors, top pages, recent events — refreshes every 5 seconds |
+| Goals & conversions | Track page visits or custom events as conversion goals with conversion rate |
+| Uptime monitoring | HTTP checks on a configurable interval with response time history |
+| Alerts | Webhook notifications for traffic spikes/drops and uptime events |
+| API keys | Generate tokens for programmatic access to your data |
+| Data export | Export page views, sessions, and events as CSV or JSON |
+| Public dashboards | Shareable read-only dashboard link per website |
+| Annotations | Mark dates on the traffic chart with notes |
+| Multi-user | Role-based access (Admin/User), email verification, admin approval |
+| Two-factor auth | TOTP-based 2FA compatible with any authenticator app |
+| Data retention | Auto-delete old data after a configurable number of days |
+| Country flags | Visitor countries shown with emoji flags |
+| Light & dark mode | System preference respected, toggleable, persisted |
+| Collapsible sidebar | Icon-only mode with tooltips, state persisted across sessions |
+
+---
+
 ## API Reference
 
-All protected endpoints require an `Authorization: Bearer <token>` header. Obtain a token by calling `POST /api/auth/login`.
+All protected endpoints require `Authorization: Bearer <token>`. Obtain a token from `POST /api/auth/login`.
 
 ### Auth
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
+| `POST` | `/api/auth/login` | — | Login, returns JWT token |
 | `POST` | `/api/auth/register` | — | Register (requires `ALLOW_SIGNUP=true`) |
-| `POST` | `/api/auth/login` | — | Login with username + password |
-| `POST` | `/api/auth/verify-email` | — | Verify email with token from email |
-| `GET`  | `/api/auth/me` | ✓ | Get current user info |
-| `POST` | `/api/auth/2fa/setup` | ✓ | Begin 2FA setup, returns QR code |
-| `POST` | `/api/auth/2fa/confirm` | ✓ | Confirm 2FA with TOTP code |
-| `POST` | `/api/auth/2fa/disable` | ✓ | Disable 2FA (requires password) |
+| `POST` | `/api/auth/verify-email` | — | Verify email token |
+| `GET`  | `/api/auth/me` | ✓ | Current user info |
+| `POST` | `/api/auth/me/preferences` | ✓ | Update preferences |
+| `POST` | `/api/auth/2fa/setup` | ✓ | Begin 2FA setup |
+| `POST` | `/api/auth/2fa/confirm` | ✓ | Confirm 2FA code |
+| `POST` | `/api/auth/2fa/disable` | ✓ | Disable 2FA |
+
+### Tracking (public)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/analytics/track/pageview` | Track a page view (includes UTM) |
+| `POST` | `/api/analytics/track/event` | Track a custom event |
 
 ### Websites
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/api/websites` | ✓ | List websites (own, or all if admin) |
-| `POST` | `/api/websites` | ✓ | Create a website |
-| `DELETE` | `/api/websites/:id` | ✓ | Delete a website and all its data |
-
-### Tracking (public — called from visitor browsers)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/analytics/track/pageview` | Track a page view |
-| `POST` | `/api/analytics/track/event` | Track a custom event |
+| `GET` | `/api/websites` | ✓ | List websites |
+| `POST` | `/api/websites` | ✓ | Create website |
+| `POST` | `/api/websites/:id/public/toggle` | ✓ | Toggle public dashboard |
+| `DELETE` | `/api/websites/:id` | ✓ | Delete website |
 
 ### Dashboard
 
 All accept `?period=24h` (default), `?period=7d`, or `?period=30d`.
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/api/dashboard/:id/stats` | ✓ | Overview stats |
-| `GET` | `/api/dashboard/:id/pages` | ✓ | Top pages |
-| `GET` | `/api/dashboard/:id/referrers` | ✓ | Traffic sources |
-| `GET` | `/api/dashboard/:id/devices` | ✓ | Device breakdown |
-| `GET` | `/api/dashboard/:id/browsers` | ✓ | Browser breakdown |
-| `GET` | `/api/dashboard/:id/countries` | ✓ | Country breakdown |
-| `GET` | `/api/dashboard/:id/realtime` | ✓ | Live activity (last 5 minutes) |
-| `GET` | `/api/analytics/data/:id/ips` | ✓ | Raw visitor IPs |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/dashboard/:id/stats` | Overview stats |
+| `GET` | `/api/dashboard/:id/pages` | Top pages |
+| `GET` | `/api/dashboard/:id/referrers` | Traffic sources |
+| `GET` | `/api/dashboard/:id/devices` | Device breakdown |
+| `GET` | `/api/dashboard/:id/browsers` | Browser breakdown |
+| `GET` | `/api/dashboard/:id/os` | OS breakdown |
+| `GET` | `/api/dashboard/:id/countries` | Country breakdown |
+| `GET` | `/api/dashboard/:id/realtime` | Live activity |
 
-### Admin (admin role required)
+### Goals
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/admin` | List all users |
-| `POST` | `/api/admin/:id/approve` | Approve a user |
-| `POST` | `/api/admin/:id/revoke` | Revoke user access |
-| `POST` | `/api/admin/:id/role` | Change user role |
-| `DELETE` | `/api/admin/:id` | Delete a user |
-| `GET` | `/api/admin/websites` | List all websites (all users) |
+| `GET` | `/api/goals/:websiteId` | List goals |
+| `POST` | `/api/goals/:websiteId` | Create goal |
+| `GET` | `/api/goals/:websiteId/:goalId/stats` | Goal conversion stats |
+| `DELETE` | `/api/goals/:websiteId/:goalId` | Delete goal |
 
-### Health
+### Uptime
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/health` | Check backend status |
+| `GET` | `/api/uptime/:websiteId` | List monitors |
+| `POST` | `/api/uptime/:websiteId` | Add monitor |
+| `PATCH` | `/api/uptime/:websiteId/:checkId/toggle` | Pause/resume |
+| `DELETE` | `/api/uptime/:websiteId/:checkId` | Delete monitor |
+
+### Alerts
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/alerts/:websiteId` | List alerts |
+| `POST` | `/api/alerts/:websiteId` | Create alert |
+| `PATCH` | `/api/alerts/:websiteId/:alertId/toggle` | Enable/disable |
+| `DELETE` | `/api/alerts/:websiteId/:alertId` | Delete alert |
+
+### Export
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/export/:websiteId/pageviews?period=30d&format=csv` | Export page views |
+| `GET` | `/api/export/:websiteId/sessions?period=30d&format=csv` | Export sessions |
+| `GET` | `/api/export/:websiteId/events?period=30d&format=csv` | Export events |
+
+Use `?format=json` for JSON output instead of CSV.
+
+### API Keys
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/keys` | List API keys |
+| `POST` | `/api/keys` | Generate new key |
+| `DELETE` | `/api/keys/:id` | Revoke key |
+
+### Public (no auth)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/public/:token` | Public dashboard data |
+| `GET` | `/api/health` | Backend health check |
+
+---
+
+## Syncing Mac → Server
+
+Use rsync to keep your Mac (source of truth) in sync with your server:
+
+```bash
+# Sync backend
+rsync -av --exclude='node_modules' --exclude='.git' --exclude='*.db' \
+  ~/Documents/web-analytics/backend/ \
+  robin@192.168.1.100:~/nextjs/web-analytics-backend/
+
+# Sync frontend
+rsync -av --exclude='node_modules' --exclude='.next' --exclude='.git' --exclude='.env.local' \
+  ~/Documents/web-analytics/frontend/ \
+  robin@192.168.1.100:~/nextjs/web-analytics-frontend/
+```
+
+> Note `--exclude='.env.local'` on the frontend sync — your Mac `.env.local` has `NEXTAUTH_URL=http://localhost:3000` while the server needs `NEXTAUTH_URL=https://dashboard.yourdomain.com`. Keep them separate.
+
+After syncing, rebuild on the server:
+
+```bash
+ssh robin@192.168.1.100
+
+cd ~/nextjs/web-analytics-backend
+npm install && npm run build && pm2 restart analytics-backend
+
+cd ~/nextjs/web-analytics-frontend
+npm install && npm run build && pm2 restart analytics-frontend
+```
 
 ---
 
 ## Updating
 
 ```bash
-# On your local machine
+# Pull latest code on Mac
 git pull
 
-# Copy backend source to server
-scp -r backend/src robin@yourserver:~/web-analytics-backend/
-scp backend/package.json robin@yourserver:~/web-analytics-backend/
-scp backend/prisma/schema.prisma robin@yourserver:~/web-analytics-backend/prisma/
+# Sync to server (see above)
+rsync ...
 
-# Copy frontend source to server
-scp -r frontend/src robin@yourserver:~/web-analytics-frontend/
-scp frontend/package.json robin@yourserver:~/web-analytics-frontend/
-
-# On the server
-ssh robin@yourserver
-
-cd ~/web-analytics-backend
-npm install
-npx prisma generate
-npx prisma db push
-npm run build && pm2 restart web-analytics-backend
-
-cd ~/web-analytics-frontend
-npm install
-npm run build && pm2 restart web-analytics-frontend
+# Rebuild on server
+ssh robin@192.168.1.100
+cd ~/nextjs/web-analytics-backend && npm install && npx prisma db push && npm run build && pm2 restart analytics-backend
+cd ~/nextjs/web-analytics-frontend && npm install && npm run build && pm2 restart analytics-frontend
 ```
 
 ---
 
 ## Troubleshooting
 
-**Tracker script returns 404**
+### Login redirects back to `/login` with no error
 
-The script is served from the backend at `/tracker.js`. Check that `https://analytics.yourdomain.com/tracker.js` is reachable.
-
-**CORS error on tracking requests**
-
-Make sure the domain is registered under **Websites** in the dashboard — hostname only, no `https://` prefix or trailing slash. No restart needed after adding.
-
-**POST requests hang through Apache**
-
-Enable the headers module and add proxy directives:
+The `NEXTAUTH_SECRET` in `backend/.env` and `frontend/.env.local` are different. They must be identical — the backend signs the JWT, the frontend verifies it.
 
 ```bash
-sudo a2enmod headers
-sudo systemctl restart apache2
+grep NEXTAUTH_SECRET ~/nextjs/web-analytics-backend/.env
+grep NEXTAUTH_SECRET ~/nextjs/web-analytics-frontend/.env.local
 ```
 
-Add to your vhost:
-```apache
-SetEnv proxy-nokeepalive 1
-ProxyTimeout 60
-```
+If different, update the backend to match the frontend (or vice versa) and restart both.
 
-**Country shows as Unknown**
+### "Could not connect to server" on login
 
-Visitors on private networks (192.168.x.x, 10.x.x.x, localhost) always show as Unknown — this is correct since geoip-lite can't resolve private IPs. Test from a device on mobile data or outside your network.
-
-**Login redirects back to /login**
-
-The `NEXTAUTH_SECRET` in `backend/.env` and `frontend/.env.local` must be exactly identical. Check:
+The login proxy route (`/api/auth/login` on the dashboard) can't reach the backend. Check `INTERNAL_API_URL` in `frontend/.env.local` — it should be `http://localhost:3456` when both apps are on the same server.
 
 ```bash
-grep NEXTAUTH_SECRET ~/web-analytics-backend/.env
-grep NEXTAUTH_SECRET ~/web-analytics-frontend/.env.local
+curl http://localhost:3456/api/health
 ```
 
-**No data appearing in the dashboard**
+If this fails, the backend isn't running:
+
+```bash
+pm2 status
+pm2 logs analytics-backend --lines 30
+```
+
+### CORS error on tracking requests
+
+The tracked website's domain isn't registered. Go to **Websites**, add the site with the exact hostname (e.g. `myblog.com` not `https://myblog.com`). No restart needed.
+
+### CORS error showing multiple `Access-Control-Allow-Origin` values
+
+Apache is adding its own CORS headers on top of the backend's. Remove all `Header always set Access-Control-Allow-Origin` lines from your Apache vhost — the backend handles CORS automatically.
+
+### Backend crashes on startup (`ERR_MODULE_NOT_FOUND`)
+
+A source file is missing on the server. Check which file:
+
+```bash
+pm2 logs analytics-backend --lines 20
+```
+
+Then sync the missing file from your Mac and rebuild:
+
+```bash
+rsync -av ~/Documents/web-analytics/backend/src/ robin@192.168.1.100:~/nextjs/web-analytics-backend/src/
+ssh robin@192.168.1.100 "cd ~/nextjs/web-analytics-backend && npm run build && pm2 restart analytics-backend"
+```
+
+### TypeScript build error: `moduleResolution`
+
+The `tsconfig.json` must use `Node16` for both `module` and `moduleResolution`:
+
+```json
+{
+  "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "node16"
+  }
+}
+```
+
+### Duplicate stale files causing build errors
+
+If you see errors about files that should have been replaced, check for duplicates:
+
+```bash
+find ~/nextjs/web-analytics-backend/src -name "*.ts" | sort
+```
+
+Delete any files in the wrong location (e.g. `src/reportCron.ts` should only exist at `src/services/reportCron.ts`).
+
+### Country shows as Unknown
+
+Visitors on private networks (192.168.x.x, 10.x.x.x, 172.16.x.x, localhost) always show Unknown — geoip-lite can't resolve private IPs. Test from outside your network (e.g. mobile data) to verify countries are working.
+
+### Tracker script returns 404
+
+Check `https://analytics.yourdomain.com/tracker.js` is reachable in your browser. The script is served as a static file from the backend's working directory. Make sure PM2 is started from the correct directory:
+
+```bash
+pm2 show analytics-backend | grep "exec cwd"
+ls <cwd>/tracker.js
+```
+
+### Mixed content error
+
+Your website is HTTPS but the analytics backend is HTTP. The backend must also be HTTPS. Follow the [Reverse Proxy & HTTPS](#reverse-proxy--https) section.
+
+### No data in dashboard
 
 Open DevTools console on the tracked site. You should see:
 ```
 [Analytics] Tracker initialized for website YOUR_WEBSITE_ID
 ```
-If missing, the script isn't loading — check the `src` URL and your CSP. If present but no data appears, check the Network tab for failed POST requests to `/api/analytics/track/pageview`.
+If missing, the script isn't loading — check `src` URL and CSP. If present but no data appears, check the Network tab for failed POST requests to `/api/analytics/track/pageview` and look at the response for an error message.
 
-**Mixed content error**
-
-The analytics backend must be HTTPS if your website is HTTPS. HTTP endpoints are blocked by modern browsers on HTTPS pages.
-
-**PM2 not starting on reboot**
+### PM2 not starting on reboot
 
 ```bash
-pm2 startup   # follow the printed command
+pm2 startup   # run the command it prints
 pm2 save
+```
+
+### Push rejected by GitHub (large file)
+
+If a large file (e.g. `node_modules`, `.next`, `core` dump) was accidentally committed:
+
+```bash
+# Find the large object
+git rev-list --objects --all | git cat-file --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' | sort -k3 -n -r | head -20
+
+# Remove it from history
+git filter-repo --path <path-to-file> --invert-paths --force
+
+# Clean up and force push
+git gc --aggressive --prune=now
+git remote add origin https://github.com/youruser/your-repo.git
+git push origin main --force
 ```

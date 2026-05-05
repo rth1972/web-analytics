@@ -55,6 +55,8 @@ web-analytics/
 
 The backend is the single source of truth. It serves `tracker.js`, handles all API calls, and manages auth. The dashboard is a separate Next.js app. The login flow proxies through the dashboard's own API route (`/api/auth/login`) to the backend, keeping everything same-origin.
 
+Unauthenticated users visiting the dashboard root (`/`) see a public landing page. Once logged in, the same route renders the analytics dashboard.
+
 ---
 
 ## Requirements
@@ -782,6 +784,20 @@ cd ~/nextjs/web-analytics-frontend && npm install && npm run build && pm2 restar
 ---
 
 ## Troubleshooting
+
+### Public paths
+
+The following paths are accessible without authentication:
+
+- `/` — landing page (shows dashboard when logged in)
+- `/login` — sign in
+- `/register` — sign up (requires `ALLOW_SIGNUP=true`)
+- `/verify-email` — email verification
+- `/public/:token` — shared public dashboard
+- `/api/auth/login` — login proxy
+- `/api/auth/logout` — logout
+
+All other routes require a valid JWT cookie. Unauthenticated requests are redirected to `/login`.
 
 ### Login redirects back to `/login` with no error
 

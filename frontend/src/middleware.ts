@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 const PUBLIC_PATHS = [
+  '/',
   '/login',
   '/register',
   '/verify-email',
@@ -21,6 +22,11 @@ export async function middleware(req: NextRequest) {
 
   // Always allow public paths
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  // For root path, let the client-side handle auth
+  if (pathname === '/') {
     return NextResponse.next();
   }
 

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
-const NO_SIDEBAR_PATHS = ['/login', '/register', '/verify-email'];
+const NO_SIDEBAR_PATHS = ['/', '/login', '/register', '/verify-email'];
 
 /* ── Viewly Logo ──────────────────────────────────────────────────────────── */
 function ViewlyLogo({ size = 28 }: { size?: number }) {

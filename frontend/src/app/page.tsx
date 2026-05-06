@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Scatter, Cell, BarChart, Bar,
@@ -55,18 +55,113 @@ const FEATURES = [
   { icon: Lock,     title: 'Self-hosted',              desc: 'Run on your own infrastructure. Full control over data, retention, and access.' },
 ];
 
+// ── Animated counter hook ────────────────────────────────────────────────────
+
+function useCountUp(target: number, duration = 1500, start = false) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!start) return;
+    let startTime: number;
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      setCount(Math.floor(progress * target));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [target, duration, start]);
+  return count;
+}
+
+const TESTIMONIALS = [
+  {
+    quote: 'Finally an analytics tool I can trust. No third-party data sharing, no cookie banners, and the dashboard is clean. Exactly what I needed.',
+    author: 'Marcus T.',
+    role: 'Indie developer',
+    avatar: 'MT',
+    color: 'bg-violet-500',
+  },
+  {
+    quote: 'We replaced Google Analytics with Viewly across 4 of our client sites. Setup took under 10 minutes each time. Our clients love that their data stays on their server.',
+    author: 'Sarah K.',
+    role: 'Agency owner',
+    avatar: 'SK',
+    color: 'bg-blue-500',
+  },
+  {
+    quote: 'The uptime monitoring alone is worth it. I get a webhook ping the moment anything goes down. Simple, reliable, self-hosted.',
+    author: 'David R.',
+    role: 'Full-stack engineer',
+    avatar: 'DR',
+    color: 'bg-emerald-500',
+  },
+];
+
+const COMPARISON = [
+  { feature: 'No cookies',          viewly: true,  ga: false, plausible: true  },
+  { feature: 'Self-hosted',         viewly: true,  ga: false, plausible: false },
+  { feature: 'Free forever',        viewly: true,  ga: true,  plausible: false },
+  { feature: 'Open source',         viewly: true,  ga: false, plausible: false },
+  { feature: 'Real-time dashboard', viewly: true,  ga: true,  plausible: true  },
+  { feature: 'Uptime monitoring',   viewly: true,  ga: false, plausible: false },
+  { feature: 'Goal tracking',       viewly: true,  ga: true,  plausible: true  },
+  { feature: 'API access',          viewly: true,  ga: true,  plausible: true  },
+  { feature: 'No data limits',      viewly: true,  ga: false, plausible: false },
+];
+
 function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [dark, setDark] = useState(false);
+  const [statsVisible, setStatsVisible] = useState(false);
+  const statsRef = useRef<HTMLDivElement>(null);
+
+  const c1 = useCountUp(100, 1500, statsVisible);
+  const c2 = useCountUp(0, 1500, statsVisible);
+  const c3 = useCountUp(100, 1500, statsVisible);
 
   useEffect(() => {
+    const checkTheme = () => {
+      const isDark = document.documentElement.classList.contains('dark') ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setDark(isDark);
+    };
+    checkTheme();
+
     const h = () => setScrolled(window.scrollY > 30);
     window.addEventListener('scroll', h, { passive: true });
-    return () => window.removeEventListener('scroll', h);
+
+    // Intersection observer for animated counters
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setStatsVisible(true); observer.disconnect(); } },
+      { threshold: 0.3 }
+    );
+    if (statsRef.current) observer.observe(statsRef.current);
+
+    return () => {
+      window.removeEventListener('scroll', h);
+      observer.disconnect();
+    };
   }, []);
 
+  const bg = dark ? '#0a0a0f' : '#ffffff';
+  const fg = dark ? '#e2e2f0' : '#1e293b';
+  const muted = dark ? '#94a3b8' : '#64748b';
+  const cardBg = dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)';
+  const cardBorder = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+  const cardHoverBg = dark ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.08)';
+  const cardHoverBorder = dark ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.3)';
+  const ghostBg = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+  const ghostBorder = dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+  const ghostHoverBg = dark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)';
+  const statCardBg = dark ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.08)';
+  const statCardBorder = dark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.2)';
+  const noiseOpacity = dark ? 0.03 : 0.02;
+  const navBg = dark ? 'rgba(10,10,15,0.85)' : 'rgba(255,255,255,0.85)';
+  const navBorder = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+
   return (
-    <div className="min-h-screen overflow-x-hidden" style={{ background: '#0a0a0f', color: '#e2e2f0' }}>
+    <div className="min-h-screen overflow-x-hidden" style={{ background: bg, color: fg }}>
       <style>{`
         .lp-gradient-text {
           background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 40%, #c084fc 100%);
@@ -78,14 +173,14 @@ function LandingPage() {
           box-shadow: 0 0 60px rgba(99,102,241,0.15), 0 0 120px rgba(99,102,241,0.05);
         }
         .lp-card {
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: ${cardBg};
+          border: 1px solid ${cardBorder};
           backdrop-filter: blur(12px);
           transition: background 0.2s, border-color 0.2s, transform 0.2s;
         }
         .lp-card:hover {
-          background: rgba(99,102,241,0.08);
-          border-color: rgba(99,102,241,0.3);
+          background: ${cardHoverBg};
+          border-color: ${cardHoverBorder};
           transform: translateY(-2px);
         }
         .lp-btn-primary {
@@ -94,17 +189,17 @@ function LandingPage() {
         }
         .lp-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
         .lp-btn-ghost {
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.1);
+          background: ${ghostBg};
+          border: 1px solid ${ghostBorder};
           transition: background 0.15s, border-color 0.15s;
         }
-        .lp-btn-ghost:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.2); }
+        .lp-btn-ghost:hover { background: ${ghostHoverBg}; border-color: ${ghostBorder}; }
         .lp-stat-card {
-          background: rgba(99,102,241,0.08);
-          border: 1px solid rgba(99,102,241,0.2);
+          background: ${statCardBg};
+          border: 1px solid ${statCardBorder};
         }
         .lp-noise {
-          position: absolute; inset: 0; opacity: 0.03;
+          position: absolute; inset: 0; opacity: ${noiseOpacity};
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
           pointer-events: none;
         }
@@ -112,25 +207,33 @@ function LandingPage() {
 
       {/* ── Navbar ── */}
       <header className="fixed inset-x-0 top-0 z-50 transition-all duration-300"
-        style={{ background: scrolled ? 'rgba(10,10,15,0.85)' : 'transparent',
-                 backdropFilter: scrolled ? 'blur(16px)' : 'none',
-                 borderBottom: scrolled ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+        style={{
+          background: scrolled ? (dark ? 'rgba(10,10,15,0.9)' : 'rgba(255,255,255,0.95)') : 'transparent',
+          backdropFilter: scrolled ? 'blur(16px)' : 'none',
+          borderBottom: scrolled ? `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)'}` : 'none',
+          boxShadow: scrolled && !dark ? '0 1px 20px rgba(0,0,0,0.06)' : 'none',
+        }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <a href="/" className="flex items-center gap-2.5">
-            <Logo size={28} dark />
-            <span className="text-lg font-bold tracking-tight text-white">Viewly</span>
+            <Logo size={28} dark={dark} />
+            <span className="text-lg font-bold tracking-tight" style={{ color: dark ? '#ffffff' : (scrolled ? '#0f172a' : '#0f172a') }}>Viewly</span>
           </a>
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: '#94a3b8' }}>
-            {['#features','#how-it-works','#privacy'].map((href, i) =>
-              <a key={href} href={href}
-                className="hover:text-white transition-colors">
-                {['Features','How it works','Privacy'][i]}
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: dark ? '#94a3b8' : (scrolled ? '#475569' : '#475569') }}>
+            {['#features','#compare','#testimonials','#how-it-works'].map((href, i) =>
+              <a key={href} href={href} className="transition-colors"
+                style={{ color: dark ? '#94a3b8' : '#475569' }}
+                onMouseEnter={e => (e.currentTarget.style.color = dark ? '#ffffff' : '#0f172a')}
+                onMouseLeave={e => (e.currentTarget.style.color = dark ? '#94a3b8' : '#475569')}>
+                {['Features','Compare','Reviews','How it works'][i]}
               </a>
             )}
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <a href="/login"
-              className="text-sm font-medium transition-colors hover:text-white" style={{ color: '#94a3b8' }}>
+              className="text-sm font-medium transition-colors"
+              style={{ color: dark ? '#94a3b8' : '#475569' }}
+              onMouseEnter={e => (e.currentTarget.style.color = dark ? '#fff' : '#0f172a')}
+              onMouseLeave={e => (e.currentTarget.style.color = dark ? '#94a3b8' : '#475569')}>
               Sign in
             </a>
             <a href="/login"
@@ -139,20 +242,24 @@ function LandingPage() {
             </a>
           </div>
           <button onClick={() => setMenuOpen(!menuOpen)}
-            className="flex md:hidden h-9 w-9 items-center justify-center rounded-lg lp-btn-ghost">
-            <ChevronDown className={`h-4 w-4 text-white transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+            className="flex md:hidden h-9 w-9 items-center justify-center rounded-lg"
+            style={{ background: ghostBg, border: `1px solid ${ghostBorder}` }}>
+            <ChevronDown className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
+              style={{ color: dark ? '#ffffff' : '#0f172a' }} />
           </button>
         </div>
         {menuOpen && (
           <div className="md:hidden px-6 pb-5 pt-2 space-y-3"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(10,10,15,0.95)' }}>
-            {['Features','How it works','Privacy'].map((label, i) => (
-              <a key={label} href={['#features','#how-it-works','#privacy'][i]}
+            style={{ borderTop: `1px solid ${cardBorder}`, background: dark ? 'rgba(10,10,15,0.97)' : 'rgba(255,255,255,0.97)' }}>
+            {['Features','Compare','Reviews','How it works'].map((label, i) => (
+              <a key={label} href={['#features','#compare','#testimonials','#how-it-works'][i]}
                 onClick={() => setMenuOpen(false)}
-                className="block py-1.5 text-sm font-medium text-slate-300 hover:text-white">{label}</a>
+                className="block py-1.5 text-sm font-medium"
+                style={{ color: dark ? '#cbd5e1' : '#475569' }}>{label}</a>
             ))}
             <div className="flex gap-3 pt-2">
-              <a href="/login" className="flex-1 lp-btn-ghost rounded-lg py-2 text-center text-sm font-medium text-white">Sign in</a>
+              <a href="/login" className="flex-1 rounded-lg py-2 text-center text-sm font-medium"
+                style={{ background: ghostBg, border: `1px solid ${ghostBorder}`, color: fg }}>Sign in</a>
               <a href="/login" className="flex-1 lp-btn-primary rounded-lg py-2 text-center text-sm font-semibold text-white">Get started</a>
             </div>
           </div>
@@ -167,18 +274,18 @@ function LandingPage() {
           <div className="absolute" style={{
             width: 700, height: 700, borderRadius: '50%',
             top: -200, left: '50%', transform: 'translateX(-60%)',
-            background: 'radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%)',
+            background: `radial-gradient(circle, ${dark ? 'rgba(99,102,241,0.18)' : 'rgba(99,102,241,0.12)'} 0%, transparent 70%)`,
             filter: 'blur(40px)',
           }}/>
           <div className="absolute" style={{
             width: 500, height: 500, borderRadius: '50%',
             bottom: -100, right: '10%',
-            background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)',
+            background: `radial-gradient(circle, ${dark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.08)'} 0%, transparent 70%)`,
             filter: 'blur(60px)',
           }}/>
           {/* Grid lines */}
           <div className="absolute inset-0" style={{
-            backgroundImage: 'linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px)',
+            backgroundImage: `linear-gradient(${dark ? 'rgba(99,102,241,0.04)' : 'rgba(99,102,241,0.06)'} 1px, transparent 1px), linear-gradient(90deg, ${dark ? 'rgba(99,102,241,0.04)' : 'rgba(99,102,241,0.06)'} 1px, transparent 1px)`,
             backgroundSize: '60px 60px',
             maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 100%)',
           }}/>
@@ -190,17 +297,17 @@ function LandingPage() {
             {/* Left — copy */}
             <div className="space-y-8">
               <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium"
-                style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
+                style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: dark ? '#a5b4fc' : '#6366f1' }}>
                 <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-400" />
                 Self-hosted · Privacy-first · Open source
               </div>
 
-              <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.08]" style={{ color: '#f1f5f9' }}>
+              <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.08]" style={{ color: dark ? '#f1f5f9' : '#0f172a' }}>
                 Analytics that<br />
                 <span className="lp-gradient-text">respect privacy</span>
               </h1>
 
-              <p className="text-lg leading-relaxed max-w-lg" style={{ color: '#94a3b8' }}>
+              <p className="text-lg leading-relaxed max-w-lg" style={{ color: muted }}>
                 Viewly is a self-hosted web analytics platform. Track page views, goals, uptime,
                 and custom events — with no cookies, no third parties, and full data ownership.
               </p>
@@ -211,12 +318,13 @@ function LandingPage() {
                   Start tracking free <ArrowRight className="h-4 w-4" />
                 </a>
                 <a href={GH} target="_blank"
-                  className="lp-btn-ghost flex items-center gap-2 rounded-xl px-8 py-3.5 text-base font-semibold text-white">
+                  className="lp-btn-ghost flex items-center gap-2 rounded-xl px-8 py-3.5 text-base font-semibold"
+                  style={{ color: dark ? '#e2e2f0' : '#1e293b' }}>
                   <GithubIcon /> View on GitHub
                 </a>
               </div>
 
-              <div className="flex flex-wrap gap-5" style={{ color: '#64748b', fontSize: 13 }}>
+              <div className="flex flex-wrap gap-5" style={{ color: dark ? '#64748b' : '#94a3b8', fontSize: 13 }}>
                 {['No credit card required', 'No cookies set', 'No consent banner needed'].map(t => (
                   <span key={t} className="flex items-center gap-1.5">
                     <Check className="h-3.5 w-3.5 text-emerald-400" /> {t}
@@ -229,29 +337,29 @@ function LandingPage() {
             <div className="relative">
               {/* Glow behind mockup */}
               <div className="absolute inset-0 rounded-2xl" style={{
-                background: 'radial-gradient(ellipse at 50% 50%, rgba(99,102,241,0.2) 0%, transparent 70%)',
+                background: `radial-gradient(ellipse at 50% 50%, ${dark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.15)'} 0%, transparent 70%)`,
                 filter: 'blur(30px)', transform: 'scale(1.1)',
               }}/>
-              <div className="relative rounded-2xl overflow-hidden lp-card" style={{ border: '1px solid rgba(99,102,241,0.25)' }}>
+              <div className="relative rounded-2xl overflow-hidden lp-card" style={{ border: `1px solid ${dark ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.2)'}` }}>
                 {/* Browser chrome */}
-                <div className="flex items-center gap-3 px-4 py-3" style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-center gap-3 px-4 py-3" style={{ background: cardBg, borderBottom: `1px solid ${cardBorder}` }}>
                   <div className="flex gap-1.5">
                     <div className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
                     <div className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
                     <div className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
                   </div>
                   <div className="flex-1 flex justify-center">
-                    <div className="flex items-center gap-2 rounded-md px-3 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="flex items-center gap-2 rounded-md px-3 py-1 text-xs" style={{ background: ghostBg, color: muted, border: `1px solid ${ghostBorder}` }}>
                       <Lock className="h-2.5 w-2.5" />
                       dashboard.yourdomain.com
                     </div>
                   </div>
                 </div>
                 {/* Dashboard content */}
-                <div className="flex" style={{ background: '#0d0d14' }}>
+                <div className="flex" style={{ background: dark ? '#0d0d14' : '#f8fafc' }}>
                   {/* Fake sidebar */}
                   <div className="hidden sm:flex w-12 shrink-0 flex-col items-center gap-3 py-5"
-                    style={{ background: 'rgba(99,102,241,0.15)', borderRight: '1px solid rgba(99,102,241,0.15)' }}>
+                    style={{ background: 'rgba(99,102,241,0.15)', borderRight: `1px solid ${dark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.1)'}` }}>
                     {[BarChart2, Globe, Zap, Target, Activity].map((Icon, i) => (
                       <div key={i} className="flex h-8 w-8 items-center justify-center rounded-lg"
                         style={{ background: i === 0 ? 'rgba(99,102,241,0.4)' : 'transparent' }}>
@@ -307,6 +415,10 @@ function LandingPage() {
                     </div>
                   </div>
                 </div>
+                {/* Powered by */}
+                <div className="px-4 py-2 text-center" style={{ borderTop: `1px solid ${cardBorder}`, background: dark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)' }}>
+                  <span className="text-[10px]" style={{ color: muted }}>Built with Next.js · Node.js · PostgreSQL · Open source</span>
+                </div>
               </div>
             </div>
           </div>
@@ -314,19 +426,24 @@ function LandingPage() {
       </section>
 
       {/* ── Stats bar ── */}
-      <section id="stats" className="py-16 px-6" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(99,102,241,0.04)' }}>
+      <section id="stats" className="py-16 px-6" ref={statsRef} style={{ borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`, borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`, background: dark ? 'rgba(99,102,241,0.04)' : 'rgba(99,102,241,0.02)' }}>
         <div className="mx-auto max-w-5xl grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {[
-            { value: '< 1KB',  label: 'Tracker script size' },
-            { value: '0',      label: 'Cookies used' },
-            { value: '100%',   label: 'Data ownership' },
-            { value: '∞',      label: 'Websites tracked' },
-          ].map(s => (
-            <div key={s.label}>
-              <div className="text-4xl font-extrabold lp-gradient-text mb-1">{s.value}</div>
-              <div className="text-sm" style={{ color: '#64748b' }}>{s.label}</div>
-            </div>
-          ))}
+          <div>
+            <div className="text-4xl font-extrabold lp-gradient-text mb-1">&lt;1KB</div>
+            <div className="text-sm" style={{ color: muted }}>Tracker script size</div>
+          </div>
+          <div>
+            <div className="text-4xl font-extrabold lp-gradient-text mb-1">{statsVisible ? c2 : 0}</div>
+            <div className="text-sm" style={{ color: muted }}>Cookies used</div>
+          </div>
+          <div>
+            <div className="text-4xl font-extrabold lp-gradient-text mb-1">{statsVisible ? c3 : 0}%</div>
+            <div className="text-sm" style={{ color: muted }}>Data ownership</div>
+          </div>
+          <div>
+            <div className="text-4xl font-extrabold lp-gradient-text mb-1">∞</div>
+            <div className="text-sm" style={{ color: muted }}>Websites tracked</div>
+          </div>
         </div>
       </section>
 
@@ -335,13 +452,13 @@ function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <div className="text-center mb-16">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium"
-              style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
+              style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: dark ? '#a5b4fc' : '#6366f1' }}>
               Everything you need
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#f1f5f9' }}>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: dark ? '#f1f5f9' : '#0f172a' }}>
               Powerful analytics, zero complexity
             </h2>
-            <p className="mx-auto max-w-lg" style={{ color: '#64748b' }}>
+            <p className="mx-auto max-w-lg" style={{ color: muted }}>
               Every feature you need to understand your audience — without the bloat of enterprise
               tools or the privacy concerns of big tech analytics.
             </p>
@@ -353,8 +470,94 @@ function LandingPage() {
                   style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.2)' }}>
                   <f.icon className="h-5 w-5" style={{ color: '#818cf8' }} />
                 </div>
-                <h3 className="font-semibold" style={{ color: '#e2e8f0' }}>{f.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: '#64748b' }}>{f.desc}</p>
+                <h3 className="font-semibold" style={{ color: dark ? '#e2e8f0' : '#1e293b' }}>{f.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: muted }}>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Comparison table ── */}
+      <section id="compare" className="py-28 px-6" style={{ background: dark ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.015)' }}>
+        <div className="mx-auto max-w-4xl">
+          <div className="text-center mb-16">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium"
+              style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: dark ? '#a5b4fc' : '#6366f1' }}>
+              How we compare
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: dark ? '#f1f5f9' : '#0f172a' }}>
+              Viewly vs the alternatives
+            </h2>
+            <p style={{ color: muted }}>See how Viewly stacks up against Google Analytics and Plausible.</p>
+          </div>
+          <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${cardBorder}` }}>
+            {/* Header */}
+            <div className="grid grid-cols-4 px-6 py-4"
+              style={{ background: dark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)', borderBottom: `1px solid ${cardBorder}` }}>
+              <div className="text-sm font-semibold" style={{ color: muted }}>Feature</div>
+              {['Viewly', 'Google Analytics', 'Plausible'].map((name, i) => (
+                <div key={name} className="text-center">
+                  <span className={`text-sm font-bold ${i === 0 ? 'text-indigo-500' : ''}`}
+                    style={{ color: i === 0 ? '#818cf8' : muted }}>{name}</span>
+                </div>
+              ))}
+            </div>
+            {/* Rows */}
+            {COMPARISON.map((row, i) => (
+              <div key={row.feature} className="grid grid-cols-4 px-6 py-3.5 items-center"
+                style={{ borderBottom: i < COMPARISON.length - 1 ? `1px solid ${cardBorder}` : 'none', background: i % 2 === 0 ? 'transparent' : (dark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)') }}>
+                <div className="text-sm font-medium" style={{ color: fg }}>{row.feature}</div>
+                {[row.viewly, row.ga, row.plausible].map((val, j) => (
+                  <div key={j} className="flex justify-center">
+                    {val
+                      ? <div className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: j === 0 ? 'rgba(99,102,241,0.15)' : 'rgba(16,185,129,0.1)' }}>
+                          <Check className="h-3.5 w-3.5" style={{ color: j === 0 ? '#818cf8' : '#10b981' }} />
+                        </div>
+                      : <div className="h-0.5 w-4 rounded-full" style={{ background: cardBorder }} />
+                    }
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-center text-xs" style={{ color: muted }}>Comparison based on free tiers and default configurations as of 2026.</p>
+        </div>
+      </section>
+
+      {/* ── Testimonials ── */}
+      <section id="testimonials" className="py-28 px-6">
+        <div className="mx-auto max-w-6xl">
+          <div className="text-center mb-16">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium"
+              style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: dark ? '#a5b4fc' : '#6366f1' }}>
+              What people say
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: dark ? '#f1f5f9' : '#0f172a' }}>
+              Trusted by developers & teams
+            </h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {TESTIMONIALS.map((t, i) => (
+              <div key={i} className="lp-card rounded-2xl p-7 space-y-5 flex flex-col">
+                {/* Stars */}
+                <div className="flex gap-1">
+                  {[...Array(5)].map((_, j) => (
+                    <svg key={j} className="h-4 w-4" viewBox="0 0 20 20" fill="#f59e0b">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <p className="flex-1 text-sm leading-relaxed" style={{ color: muted }}>“{t.quote}”</p>
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${t.color}`}>
+                    {t.avatar}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold" style={{ color: dark ? '#e2e8f0' : '#1e293b' }}>{t.author}</div>
+                    <div className="text-xs" style={{ color: muted }}>{t.role}</div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -362,17 +565,17 @@ function LandingPage() {
       </section>
 
       {/* ── How it works ── */}
-      <section id="how-it-works" className="py-28 px-6" style={{ background: 'rgba(255,255,255,0.015)' }}>
+      <section id="how-it-works" className="py-28 px-6" style={{ background: dark ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.015)' }}>
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-16">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium"
-              style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
+              style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: dark ? '#a5b4fc' : '#6366f1' }}>
               Quick setup
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#f1f5f9' }}>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: dark ? '#f1f5f9' : '#0f172a' }}>
               Up and running in minutes
             </h2>
-            <p style={{ color: '#64748b' }}>Three steps from zero to tracking.</p>
+            <p style={{ color: muted }}>Three steps from zero to tracking.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[
@@ -391,14 +594,14 @@ function LandingPage() {
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl lp-btn-primary">
                     <s.icon className="h-5 w-5 text-white" />
                   </div>
-                  <span className="text-4xl font-black" style={{ color: 'rgba(255,255,255,0.04)' }}>{s.step}</span>
+                  <span className="text-4xl font-black" style={{ color: dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }}>{s.step}</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1" style={{ color: '#e2e8f0' }}>{s.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: '#64748b' }}>{s.desc}</p>
+                  <h3 className="font-semibold mb-1" style={{ color: dark ? '#e2e8f0' : '#1e293b' }}>{s.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: muted }}>{s.desc}</p>
                 </div>
                 <code className="block rounded-lg px-3 py-2 text-xs break-all"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: '#94a3b8' }}>
+                  style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: muted }}>
                   {s.code}
                 </code>
               </div>
@@ -411,24 +614,24 @@ function LandingPage() {
       <section id="privacy" className="py-28 px-6">
         <div className="mx-auto max-w-5xl">
           <div className="relative rounded-3xl overflow-hidden p-10 md:p-16"
-            style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.15) 100%)', border: '1px solid rgba(99,102,241,0.3)' }}>
+            style={{ background: dark ? 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.15) 100%)' : 'linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(139,92,246,0.08) 100%)', border: `1px solid ${dark ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.2)'}` }}>
             <div className="lp-noise" />
             <div className="absolute" style={{
               width: 400, height: 400, borderRadius: '50%',
               top: -100, right: -100,
-              background: 'radial-gradient(circle, rgba(139,92,246,0.25) 0%, transparent 70%)',
+              background: `radial-gradient(circle, ${dark ? 'rgba(139,92,246,0.25)' : 'rgba(139,92,246,0.15)'} 0%, transparent 70%)`,
               filter: 'blur(40px)', pointerEvents: 'none',
             }} />
             <div className="relative flex flex-col md:flex-row items-start gap-12">
               <div className="flex-1 space-y-5">
                 <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium"
-                  style={{ background: 'rgba(255,255,255,0.1)', color: '#c4b5fd' }}>
+                  style={{ background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', color: dark ? '#c4b5fd' : '#6366f1' }}>
                   <Shield className="h-3.5 w-3.5" /> Cookie-free & privacy-friendly
                 </div>
-                <h2 className="text-3xl md:text-4xl font-bold" style={{ color: '#f1f5f9' }}>
+                <h2 className="text-3xl md:text-4xl font-bold" style={{ color: dark ? '#f1f5f9' : '#0f172a' }}>
                   Your data never leaves your server
                 </h2>
-                <p className="leading-relaxed" style={{ color: '#a5b4fc' }}>
+                <p className="leading-relaxed" style={{ color: dark ? '#a5b4fc' : '#6366f1' }}>
                   Viewly uses no cookies and no fingerprinting. All analytics data is stored in your
                   own PostgreSQL database on your own server — no third-party services ever see your
                   visitors' data. Because no cookies are used, you don't need a cookie consent banner.
@@ -440,7 +643,7 @@ function LandingPage() {
                     'Configurable data retention periods',
                     'No cookie consent banner needed for analytics',
                   ].map(t => (
-                    <li key={t} className="flex items-center gap-2.5 text-sm" style={{ color: '#c4b5fd' }}>
+                    <li key={t} className="flex items-center gap-2.5 text-sm" style={{ color: dark ? '#c4b5fd' : '#6366f1' }}>
                       <Check className="h-4 w-4 text-emerald-400 shrink-0" /> {t}
                     </li>
                   ))}
@@ -454,9 +657,9 @@ function LandingPage() {
                   { icon: TrendingUp, label: 'Open Source' },
                 ].map(({ icon: Icon, label }) => (
                   <div key={label} className="flex flex-col items-center gap-2 rounded-2xl p-5 min-w-[100px]"
-                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <Icon className="h-6 w-6" style={{ color: '#a5b4fc' }} />
-                    <span className="text-xs font-medium" style={{ color: '#c4b5fd' }}>{label}</span>
+                    style={{ background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.03)', border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}` }}>
+                    <Icon className="h-6 w-6" style={{ color: dark ? '#a5b4fc' : '#6366f1' }} />
+                    <span className="text-xs font-medium" style={{ color: dark ? '#c4b5fd' : '#6366f1' }}>{label}</span>
                   </div>
                 ))}
               </div>
@@ -466,12 +669,12 @@ function LandingPage() {
       </section>
 
       {/* ── CTA ── */}
-      <section className="py-28 px-6 text-center" style={{ background: 'rgba(255,255,255,0.015)' }}>
+      <section className="py-28 px-6 text-center" style={{ background: dark ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.015)' }}>
         <div className="mx-auto max-w-2xl space-y-6">
-          <h2 className="text-3xl md:text-4xl font-bold" style={{ color: '#f1f5f9' }}>
+          <h2 className="text-3xl md:text-4xl font-bold" style={{ color: dark ? '#f1f5f9' : '#0f172a' }}>
             Ready to own your analytics?
           </h2>
-          <p style={{ color: '#64748b' }}>
+          <p style={{ color: muted }}>
             Deploy Viewly on your own server and start tracking in minutes.
             Free forever, open source, no usage limits.
           </p>
@@ -481,26 +684,26 @@ function LandingPage() {
               Get started now <ArrowRight className="h-4 w-4" />
             </a>
             <a href={GH} target="_blank"
-              className="lp-btn-ghost flex items-center gap-2 rounded-xl px-8 py-3.5 text-base font-semibold text-white">
-              <GithubIcon /> Star on GitHub
+              className="lp-btn-ghost flex items-center gap-2 rounded-xl px-8 py-3.5 text-base font-semibold"
+              style={{ color: fg }}>
+              <GithubIcon /> View on GitHub
             </a>
+          </div>
+          <div className="flex items-center justify-center gap-2 pt-4" style={{ color: muted, fontSize: 13 }}>
+            <Check className="h-3.5 w-3.5 text-emerald-400" /> Open source · <GithubIcon size={12} /> {GH.replace('https://github.com/','')}
           </div>
         </div>
       </section>
-
+      
       {/* ── Footer ── */}
-      <footer className="py-12 px-6" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <footer className="py-12 px-6" style={{ borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}` }}>
         <div className="mx-auto max-w-6xl flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <Logo size={24} dark />
-            <span className="font-semibold text-white">Viewly</span>
-            <span className="text-sm" style={{ color: '#334155' }}>·</span>
-            <span className="text-sm" style={{ color: '#475569' }}>Self-hosted analytics</span>
+            <Logo size={24} dark={dark} />
+            <span className="font-semibold" style={{ color: dark ? '#ffffff' : '#0f172a' }}>Viewly</span>
           </div>
-          <div className="flex items-center gap-6 text-sm" style={{ color: '#475569' }}>
-            <a href="/login" className="hover:text-white transition-colors">Sign in</a>
-            <a href={GH} target="_blank" className="hover:text-white transition-colors">GitHub</a>
-            <span>© {new Date().getFullYear()} Viewly</span>
+          <div className="text-sm" style={{ color: dark ? '#475569' : '#94a3b8' }}>
+            Open source · MIT License · <a href={GH} target="_blank" className="hover:underline" style={{ color: muted }}>GitHub</a>
           </div>
         </div>
       </footer>

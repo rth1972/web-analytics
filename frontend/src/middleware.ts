@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 // Exact matches — only these specific paths are public
-const PUBLIC_EXACT = ['/', '/login', '/register'];
+const PUBLIC_EXACT = ['/', '/login', '/register', '/docs'];
 
 // Prefix matches — anything starting with these is public
 const PUBLIC_PREFIXES = [

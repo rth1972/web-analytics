@@ -227,6 +227,12 @@ function LandingPage() {
                 {['Features','Compare','Reviews','How it works'][i]}
               </a>
             )}
+            <a href="/docs" className="transition-colors"
+              style={{ color: dark ? '#94a3b8' : '#475569' }}
+              onMouseEnter={e => (e.currentTarget.style.color = dark ? '#ffffff' : '#0f172a')}
+              onMouseLeave={e => (e.currentTarget.style.color = dark ? '#94a3b8' : '#475569')}>
+              Docs
+            </a>
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <a href="/login"
@@ -248,22 +254,25 @@ function LandingPage() {
               style={{ color: dark ? '#ffffff' : '#0f172a' }} />
           </button>
         </div>
-        {menuOpen && (
-          <div className="md:hidden px-6 pb-5 pt-2 space-y-3"
-            style={{ borderTop: `1px solid ${cardBorder}`, background: dark ? 'rgba(10,10,15,0.97)' : 'rgba(255,255,255,0.97)' }}>
-            {['Features','Compare','Reviews','How it works'].map((label, i) => (
-              <a key={label} href={['#features','#compare','#testimonials','#how-it-works'][i]}
-                onClick={() => setMenuOpen(false)}
+          {menuOpen && (
+            <div className="md:hidden px-6 pb-5 pt-2 space-y-3"
+              style={{ borderTop: `1px solid ${cardBorder}`, background: dark ? 'rgba(10,10,15,0.97)' : 'rgba(255,255,255,0.97)' }}>
+              {['Features','Compare','Reviews','How it works'].map((label, i) => (
+                <a key={label} href={['#features','#compare','#testimonials','#how-it-works'][i]}
+                  onClick={() => setMenuOpen(false)}
+                  className="block py-1.5 text-sm font-medium"
+                  style={{ color: dark ? '#cbd5e1' : '#475569' }}>{label}</a>
+              ))}
+              <a href="/docs" onClick={() => setMenuOpen(false)}
                 className="block py-1.5 text-sm font-medium"
-                style={{ color: dark ? '#cbd5e1' : '#475569' }}>{label}</a>
-            ))}
-            <div className="flex gap-3 pt-2">
-              <a href="/login" className="flex-1 rounded-lg py-2 text-center text-sm font-medium"
-                style={{ background: ghostBg, border: `1px solid ${ghostBorder}`, color: fg }}>Sign in</a>
-              <a href="/login" className="flex-1 lp-btn-primary rounded-lg py-2 text-center text-sm font-semibold text-white">Get started</a>
+                style={{ color: dark ? '#cbd5e1' : '#475569' }}>Docs</a>
+              <div className="flex gap-3 pt-2">
+                <a href="/login" className="flex-1 rounded-lg py-2 text-center text-sm font-medium"
+                  style={{ background: ghostBg, border: `1px solid ${ghostBorder}`, color: fg }}>Sign in</a>
+                <a href="/login" className="flex-1 lp-btn-primary rounded-lg py-2 text-center text-sm font-semibold text-white">Get started</a>
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </header>
 
       {/* ── Hero ── */}

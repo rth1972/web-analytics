@@ -7,12 +7,12 @@ import Link from 'next/link';
 import {
   Sun, Moon, LayoutDashboard, Globe, Zap,
   Settings, ShieldCheck, LogOut, Menu, X,
-  Target, Key, Bell, Activity, HelpCircle,
+  Target, Key, Bell, Activity, HelpCircle, BookOpen,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
-const ALWAYS_NO_SIDEBAR = ['/login', '/register', '/verify-email'];
+const ALWAYS_NO_SIDEBAR = ['/login', '/register', '/verify-email', '/docs'];
 const LANDING_PATH = '/';
 
 /* ── Viewly Logo ──────────────────────────────────────────────────────────── */
@@ -72,6 +72,7 @@ const NAV = [
   { href: '/keys',     icon: Key,             label: 'API Keys'  },
   { href: '/settings', icon: Settings,        label: 'Settings'  },
   { href: '/help',     icon: HelpCircle,      label: 'Help'      },
+  { href: '/docs',     icon: BookOpen,        label: 'Docs'      },
 ];
 
 /* ── Single nav item ──────────────────────────────────────────────────────── */
@@ -193,6 +194,7 @@ function SidebarContent({ collapsed, onToggle, onNavClick }: {
         <NavItem href="/keys"     icon={Key}         label="API Keys"  collapsed={collapsed} onClick={onNavClick} role={role} />
         <NavItem href="/settings" icon={Settings}    label="Settings"  collapsed={collapsed} onClick={onNavClick} role={role} />
         <NavItem href="/help"     icon={HelpCircle}  label="Help"      collapsed={collapsed} onClick={onNavClick} role={role} />
+        <NavItem href="/docs"     icon={BookOpen}    label="Docs"      collapsed={collapsed} onClick={onNavClick} role={role} />
 
         {role === 'ADMIN' && (
           <>

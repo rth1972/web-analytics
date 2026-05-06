@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
-const NO_SIDEBAR_PATHS = ['/', '/login', '/register', '/verify-email'];
+const ALWAYS_NO_SIDEBAR = ['/login', '/register', '/verify-email'];
+const LANDING_PATH = '/';
 
 /* ── Viewly Logo ──────────────────────────────────────────────────────────── */
 function ViewlyLogo({ size = 28 }: { size?: number }) {
@@ -303,7 +304,25 @@ function AppShell({ children }: { children: React.ReactNode }) {
 /* ── Root layout ──────────────────────────────────────────────────────────── */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const noSidebar = NO_SIDEBAR_PATHS.some(p => pathname.startsWith(p));
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+
+  const alwaysNoSidebar = ALWAYS_NO_SIDEBAR.some(p => pathname.startsWith(p));
+  const isLanding = pathname === LANDING_PATH;
+
+  useEffect(() => {
+    if (!isLanding) return;
+    const token = document.cookie.includes('auth-token=');
+    if (!token) { setIsAuthed(false); return; }
+    api.get('/api/auth/me')
+      .then(r => setIsAuthed(r.ok))
+      .catch(() => setIsAuthed(false));
+  }, [isLanding]);
+
+  const noSidebar = alwaysNoSidebar
+    ? true
+    : isLanding
+      ? isAuthed !== true  // show landing if not authed, sidebar if authed
+      : false;             // all other routes always get sidebar
 
   return (
     <html lang="en" suppressHydrationWarning>

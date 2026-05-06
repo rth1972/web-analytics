@@ -14,255 +14,298 @@ import {
 
 // ── Landing page ──────────────────────────────────────────────────────────────
 
-function ViewlyWordmark() {
+const GH = 'https://github.com/rth1972/web-analytics';
+
+function Logo({ size = 28, dark = true }: { size?: number; dark?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <svg width="30" height="30" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="lp-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#6366f1"/>
-            <stop offset="100%" stopColor="#4f46e5"/>
-          </linearGradient>
-        </defs>
-        <rect width="32" height="32" rx="8" fill="url(#lp-grad)"/>
-        <path d="M 3 16 Q 16 4 29 16 Q 16 28 3 16 Z"
-          fill="none" stroke="white" strokeWidth="2.2"
-          strokeLinejoin="round" strokeLinecap="round" opacity="0.9"/>
-        <circle cx="16" cy="16" r="5.5" fill="white" opacity="0.95"/>
-        <circle cx="16" cy="16" r="2.5" fill="#6366f1"/>
-      </svg>
-      <span className="text-xl font-bold tracking-tight text-gray-900">Viewly</span>
-    </div>
+    <svg width={size} height={size} viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="logo-g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#818cf8"/>
+          <stop offset="100%" stopColor="#6366f1"/>
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="8" fill={dark ? 'rgba(99,102,241,0.15)' : 'url(#logo-g)'}/>
+      <path d="M 3 16 Q 16 4 29 16 Q 16 28 3 16 Z"
+        fill="none" stroke={dark ? '#818cf8' : 'white'} strokeWidth="2.2"
+        strokeLinejoin="round" strokeLinecap="round" opacity="0.9"/>
+      <circle cx="16" cy="16" r="5.5" fill={dark ? '#818cf8' : 'white'} opacity="0.95"/>
+      <circle cx="16" cy="16" r="2.5" fill={dark ? '#1e1b4b' : '#6366f1'}/>
+    </svg>
+  );
+}
+
+function GithubIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+    </svg>
   );
 }
 
 const FEATURES = [
-  {
-    icon: Eye,
-    title: 'Real-time Analytics',
-    desc: 'Watch visitors browse your site live. See active pages, countries, and events as they happen — updated every 5 seconds.',
-  },
-  {
-    icon: Target,
-    title: 'Goals & Conversions',
-    desc: 'Define conversion goals based on page visits or custom events. Track conversion rates and understand your funnel.',
-  },
-  {
-    icon: Activity,
-    title: 'Uptime Monitoring',
-    desc: 'Monitor your URLs with configurable intervals. Get instant webhook alerts when a site goes down or recovers.',
-  },
-  {
-    icon: Globe,
-    title: 'UTM Campaign Tracking',
-    desc: 'Automatically captures UTM parameters so you can attribute traffic to the right marketing campaigns.',
-  },
-  {
-    icon: Bell,
-    title: 'Smart Alerts',
-    desc: 'Get notified via webhook when traffic spikes, drops, or your site goes offline. Configure thresholds per site.',
-  },
-  {
-    icon: Key,
-    title: 'API Access',
-    desc: 'Generate API keys for programmatic access to all your data. Export as CSV or JSON for your own pipelines.',
-  },
-  {
-    icon: Shield,
-    title: 'Privacy First',
-    desc: 'No cookies, no fingerprinting, no third parties. GDPR-friendly by design. Your data stays on your server.',
-  },
-  {
-    icon: Users,
-    title: 'Multi-user & 2FA',
-    desc: 'Invite your team with role-based access. Protect accounts with TOTP two-factor authentication.',
-  },
-  {
-    icon: Lock,
-    title: 'Self-hosted',
-    desc: 'Run on your own infrastructure. Full control over your data, retention, and access. Open source and free.',
-  },
-];
-
-const STATS = [
-  { value: '< 1KB', label: 'Tracker script size' },
-  { value: '0',     label: 'Cookies used' },
-  { value: '100%',  label: 'Data ownership' },
-  { value: '∞',     label: 'Websites tracked' },
+  { icon: Eye,      title: 'Real-time Analytics',     desc: 'Watch visitors browse your site live. Active pages, countries and events — updated every 5 seconds.' },
+  { icon: Target,   title: 'Goals & Conversions',      desc: 'Define conversion goals based on page visits or custom events. Track rates and understand your funnel.' },
+  { icon: Activity, title: 'Uptime Monitoring',        desc: 'HTTP checks on a configurable interval with instant webhook alerts when a site goes down.' },
+  { icon: Globe,    title: 'UTM Campaign Tracking',    desc: 'Automatically captures utm_source, utm_medium, utm_campaign and more from every URL.' },
+  { icon: Bell,     title: 'Smart Alerts',             desc: 'Get notified via webhook when traffic spikes, drops, or your site goes offline.' },
+  { icon: Key,      title: 'API Access',               desc: 'Generate API keys for programmatic access to all your data. Export as CSV or JSON.' },
+  { icon: Shield,   title: 'Privacy First',            desc: 'No cookies, no fingerprinting, no third parties. Your data stays on your server.' },
+  { icon: Users,    title: 'Multi-user & 2FA',         desc: 'Role-based access for your team. TOTP two-factor authentication for every account.' },
+  { icon: Lock,     title: 'Self-hosted',              desc: 'Run on your own infrastructure. Full control over data, retention, and access.' },
 ];
 
 function LandingPage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const h = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', h);
+    const h = () => setScrolled(window.scrollY > 30);
+    window.addEventListener('scroll', h, { passive: true });
     return () => window.removeEventListener('scroll', h);
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden" style={{ background: '#0a0a0f', color: '#e2e2f0' }}>
+      <style>{`
+        .lp-gradient-text {
+          background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 40%, #c084fc 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .lp-glow {
+          box-shadow: 0 0 60px rgba(99,102,241,0.15), 0 0 120px rgba(99,102,241,0.05);
+        }
+        .lp-card {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          backdrop-filter: blur(12px);
+          transition: background 0.2s, border-color 0.2s, transform 0.2s;
+        }
+        .lp-card:hover {
+          background: rgba(99,102,241,0.08);
+          border-color: rgba(99,102,241,0.3);
+          transform: translateY(-2px);
+        }
+        .lp-btn-primary {
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          transition: opacity 0.15s, transform 0.15s;
+        }
+        .lp-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .lp-btn-ghost {
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.1);
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .lp-btn-ghost:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.2); }
+        .lp-stat-card {
+          background: rgba(99,102,241,0.08);
+          border: 1px solid rgba(99,102,241,0.2);
+        }
+        .lp-noise {
+          position: absolute; inset: 0; opacity: 0.03;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+          pointer-events: none;
+        }
+      `}</style>
 
-      {/* ── Nav ── */}
-      <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-200 ${
-        scrolled ? 'bg-white/95 shadow-sm backdrop-blur-md' : 'bg-transparent'
-      }`}>
+      {/* ── Navbar ── */}
+      <header className="fixed inset-x-0 top-0 z-50 transition-all duration-300"
+        style={{ background: scrolled ? 'rgba(10,10,15,0.85)' : 'transparent',
+                 backdropFilter: scrolled ? 'blur(16px)' : 'none',
+                 borderBottom: scrolled ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <ViewlyWordmark />
-          <nav className="hidden items-center gap-8 text-sm font-medium text-gray-500 md:flex">
-            <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-gray-900 transition-colors">How it works</a>
-            <a href="#stats" className="hover:text-gray-900 transition-colors">Why Viewly</a>
+          <a href="/" className="flex items-center gap-2.5">
+            <Logo size={28} dark />
+            <span className="text-lg font-bold tracking-tight text-white">Viewly</span>
+          </a>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: '#94a3b8' }}>
+            {['#features','#how-it-works','#privacy'].map((href, i) =>
+              <a key={href} href={href}
+                className="hover:text-white transition-colors">
+                {['Features','How it works','Privacy'][i]}
+              </a>
+            )}
           </nav>
-          <div className="hidden items-center gap-3 md:flex">
+          <div className="hidden md:flex items-center gap-3">
             <a href="/login"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+              className="text-sm font-medium transition-colors hover:text-white" style={{ color: '#94a3b8' }}>
               Sign in
             </a>
             <a href="/login"
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm">
+              className="lp-btn-primary flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white">
               Get started <ArrowRight className="h-3.5 w-3.5" />
             </a>
           </div>
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="flex md:hidden h-9 w-9 items-center justify-center rounded-lg border border-gray-200">
-            <ChevronDown className={`h-4 w-4 transition-transform ${mobileMenuOpen ? 'rotate-180' : ''}`} />
+          <button onClick={() => setMenuOpen(!menuOpen)}
+            className="flex md:hidden h-9 w-9 items-center justify-center rounded-lg lp-btn-ghost">
+            <ChevronDown className={`h-4 w-4 text-white transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
-        {mobileMenuOpen && (
-          <div className="border-t border-gray-100 bg-white px-6 py-4 space-y-3 md:hidden">
-            <a href="#features" className="block text-sm font-medium text-gray-700 py-1">Features</a>
-            <a href="#how-it-works" className="block text-sm font-medium text-gray-700 py-1">How it works</a>
-            <a href="#stats" className="block text-sm font-medium text-gray-700 py-1">Why Viewly</a>
+        {menuOpen && (
+          <div className="md:hidden px-6 pb-5 pt-2 space-y-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(10,10,15,0.95)' }}>
+            {['Features','How it works','Privacy'].map((label, i) => (
+              <a key={label} href={['#features','#how-it-works','#privacy'][i]}
+                onClick={() => setMenuOpen(false)}
+                className="block py-1.5 text-sm font-medium text-slate-300 hover:text-white">{label}</a>
+            ))}
             <div className="flex gap-3 pt-2">
-              <a href="/login" className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-sm font-medium">Sign in</a>
-              <a href="/login" className="flex-1 rounded-lg bg-indigo-600 py-2 text-center text-sm font-semibold text-white">Get started</a>
+              <a href="/login" className="flex-1 lp-btn-ghost rounded-lg py-2 text-center text-sm font-medium text-white">Sign in</a>
+              <a href="/login" className="flex-1 lp-btn-primary rounded-lg py-2 text-center text-sm font-semibold text-white">Get started</a>
             </div>
           </div>
         )}
       </header>
 
       {/* ── Hero ── */}
-      <section className="relative pt-32 pb-24 px-6 text-center overflow-hidden">
-        {/* Background gradient */}
-        <div className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute inset-x-0 top-0 h-[600px]"
-            style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.12) 0%, transparent 70%)' }} />
-          <div className="absolute left-1/2 top-20 -translate-x-1/2 w-[800px] h-[800px] rounded-full border border-indigo-100 opacity-40" />
-          <div className="absolute left-1/2 top-20 -translate-x-1/2 w-[500px] h-[500px] rounded-full border border-indigo-100 opacity-60" />
+      <section className="relative min-h-screen flex items-center pt-24 pb-20 px-6">
+        {/* Background orbs */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="lp-noise" />
+          <div className="absolute" style={{
+            width: 700, height: 700, borderRadius: '50%',
+            top: -200, left: '50%', transform: 'translateX(-60%)',
+            background: 'radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%)',
+            filter: 'blur(40px)',
+          }}/>
+          <div className="absolute" style={{
+            width: 500, height: 500, borderRadius: '50%',
+            bottom: -100, right: '10%',
+            background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)',
+            filter: 'blur(60px)',
+          }}/>
+          {/* Grid lines */}
+          <div className="absolute inset-0" style={{
+            backgroundImage: 'linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px)',
+            backgroundSize: '60px 60px',
+            maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 100%)',
+          }}/>
         </div>
 
-        <div className="mx-auto max-w-3xl">
-          {/* Badge */}
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700">
-            <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-500" />
-            Self-hosted · Privacy-first · Open source
-          </div>
+        <div className="relative mx-auto max-w-6xl w-full">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
 
-          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-6 text-gray-900">
-            Analytics that respect
-            <span className="block bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
-              your users' privacy
-            </span>
-          </h1>
-
-          <p className="mx-auto max-w-xl text-lg text-gray-500 mb-10 leading-relaxed">
-            Viewly is a self-hosted web analytics platform. Track page views, sessions, goals, uptime, and custom events — with no cookies, no third parties, and full data ownership.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a href="/login"
-              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
-              Start tracking free <ArrowRight className="h-4 w-4" />
-            </a>
-            <a href="https://github.com/rth1972/web-analytics" target="_blank"
-              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-8 py-3.5 text-base font-semibold text-gray-700 hover:border-gray-300 hover:bg-gray-50 transition-colors shadow-sm">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-gray-700">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-              </svg>
-              View on GitHub
-            </a>
-          </div>
-
-          {/* Trust line */}
-          <div className="mt-10 flex items-center justify-center gap-6 text-sm text-gray-400">
-            {['No credit card required', 'No cookies', 'GDPR compliant'].map((t, i) => (
-              <span key={t} className="flex items-center gap-1.5">
-                {i > 0 && <span className="text-gray-200">·</span>}
-                <Check className="h-3.5 w-3.5 text-green-500" />
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Dashboard preview mockup */}
-        <div className="mx-auto mt-20 max-w-5xl px-4">
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-2xl shadow-gray-200/80 overflow-hidden">
-            {/* Fake browser bar */}
-            <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3">
-              <div className="flex gap-1.5">
-                <div className="h-3 w-3 rounded-full bg-red-400" />
-                <div className="h-3 w-3 rounded-full bg-yellow-400" />
-                <div className="h-3 w-3 rounded-full bg-green-400" />
+            {/* Left — copy */}
+            <div className="space-y-8">
+              <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium"
+                style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
+                <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                Self-hosted · Privacy-first · Open source
               </div>
-              <div className="flex-1 mx-4">
-                <div className="flex items-center gap-2 rounded-md bg-white border border-gray-200 px-3 py-1 text-xs text-gray-400 max-w-xs mx-auto">
-                  <Lock className="h-3 w-3 text-gray-400" />
-                  dashboard.yourdomain.com
-                </div>
+
+              <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.08]" style={{ color: '#f1f5f9' }}>
+                Analytics that<br />
+                <span className="lp-gradient-text">respect privacy</span>
+              </h1>
+
+              <p className="text-lg leading-relaxed max-w-lg" style={{ color: '#94a3b8' }}>
+                Viewly is a self-hosted web analytics platform. Track page views, goals, uptime,
+                and custom events — with no cookies, no third parties, and full data ownership.
+              </p>
+
+              <div className="flex flex-wrap gap-4">
+                <a href="/login"
+                  className="lp-btn-primary flex items-center gap-2 rounded-xl px-8 py-3.5 text-base font-semibold text-white lp-glow">
+                  Start tracking free <ArrowRight className="h-4 w-4" />
+                </a>
+                <a href={GH} target="_blank"
+                  className="lp-btn-ghost flex items-center gap-2 rounded-xl px-8 py-3.5 text-base font-semibold text-white">
+                  <GithubIcon /> View on GitHub
+                </a>
               </div>
-            </div>
-            {/* Fake dashboard content */}
-            <div className="flex bg-white">
-              {/* Fake sidebar */}
-              <div className="hidden sm:flex w-14 flex-col items-center gap-4 border-r border-gray-100 bg-indigo-600 py-6">
-                {[BarChart2, Globe, Zap, Target, Activity].map((Icon, i) => (
-                  <div key={i} className={`flex h-9 w-9 items-center justify-center rounded-lg ${i === 0 ? 'bg-white/20' : ''}`}>
-                    <Icon className="h-4 w-4 text-white/80" />
-                  </div>
+
+              <div className="flex flex-wrap gap-5" style={{ color: '#64748b', fontSize: 13 }}>
+                {['No credit card required', 'No cookies set', 'No consent banner needed'].map(t => (
+                  <span key={t} className="flex items-center gap-1.5">
+                    <Check className="h-3.5 w-3.5 text-emerald-400" /> {t}
+                  </span>
                 ))}
               </div>
-              {/* Fake content */}
-              <div className="flex-1 p-5 space-y-4">
-                {/* Stat cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    { label: 'Page Views', value: '24,891' },
-                    { label: 'Visitors',   value: '8,342'  },
-                    { label: 'Bounce Rate',value: '38%'    },
-                    { label: 'Avg Session',value: '2m 41s' },
-                  ].map(s => (
-                    <div key={s.label} className="rounded-lg border border-gray-100 p-3">
-                      <div className="text-[11px] text-gray-400">{s.label}</div>
-                      <div className="text-xl font-bold text-gray-900 mt-0.5">{s.value}</div>
+            </div>
+
+            {/* Right — dashboard mockup */}
+            <div className="relative">
+              {/* Glow behind mockup */}
+              <div className="absolute inset-0 rounded-2xl" style={{
+                background: 'radial-gradient(ellipse at 50% 50%, rgba(99,102,241,0.2) 0%, transparent 70%)',
+                filter: 'blur(30px)', transform: 'scale(1.1)',
+              }}/>
+              <div className="relative rounded-2xl overflow-hidden lp-card" style={{ border: '1px solid rgba(99,102,241,0.25)' }}>
+                {/* Browser chrome */}
+                <div className="flex items-center gap-3 px-4 py-3" style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="flex gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
+                  </div>
+                  <div className="flex-1 flex justify-center">
+                    <div className="flex items-center gap-2 rounded-md px-3 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <Lock className="h-2.5 w-2.5" />
+                      dashboard.yourdomain.com
                     </div>
-                  ))}
+                  </div>
                 </div>
-                {/* Fake chart */}
-                <div className="rounded-lg border border-gray-100 p-3 h-32 flex items-end gap-1">
-                  {[40, 65, 45, 80, 55, 90, 70, 85, 60, 95, 75, 88, 50, 78].map((h, i) => (
-                    <div key={i} className="flex-1 rounded-sm bg-indigo-100" style={{ height: `${h}%` }}>
-                      <div className="w-full rounded-sm bg-indigo-500" style={{ height: `${Math.max(20, h - 20)}%` }} />
-                    </div>
-                  ))}
-                </div>
-                {/* Fake table rows */}
-                <div className="space-y-2">
-                  {[
-                    { page: '/blog/getting-started', pct: 92 },
-                    { page: '/',                     pct: 71 },
-                    { page: '/pricing',              pct: 45 },
-                  ].map(r => (
-                    <div key={r.page} className="flex items-center gap-3">
-                      <div className="text-xs text-gray-500 w-40 truncate">{r.page}</div>
-                      <div className="flex-1 h-1.5 rounded-full bg-gray-100">
-                        <div className="h-1.5 rounded-full bg-indigo-400" style={{ width: `${r.pct}%` }} />
+                {/* Dashboard content */}
+                <div className="flex" style={{ background: '#0d0d14' }}>
+                  {/* Fake sidebar */}
+                  <div className="hidden sm:flex w-12 shrink-0 flex-col items-center gap-3 py-5"
+                    style={{ background: 'rgba(99,102,241,0.15)', borderRight: '1px solid rgba(99,102,241,0.15)' }}>
+                    {[BarChart2, Globe, Zap, Target, Activity].map((Icon, i) => (
+                      <div key={i} className="flex h-8 w-8 items-center justify-center rounded-lg"
+                        style={{ background: i === 0 ? 'rgba(99,102,241,0.4)' : 'transparent' }}>
+                        <Icon className="h-3.5 w-3.5" style={{ color: i === 0 ? '#a5b4fc' : '#475569' }} />
                       </div>
-                      <div className="text-xs text-gray-400 w-8 text-right">{r.pct}%</div>
+                    ))}
+                  </div>
+                  {/* Fake content */}
+                  <div className="flex-1 p-4 space-y-3">
+                    {/* Stat cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {[
+                        { label: 'Page Views', value: '24,891', up: true  },
+                        { label: 'Visitors',   value: '8,342',  up: true  },
+                        { label: 'Bounce Rate',value: '38%',    up: false },
+                        { label: 'Avg Session',value: '2m 41s', up: true  },
+                      ].map(s => (
+                        <div key={s.label} className="rounded-lg p-2.5"
+                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div className="text-[10px]" style={{ color: '#475569' }}>{s.label}</div>
+                          <div className="text-base font-bold mt-0.5" style={{ color: '#e2e8f0' }}>{s.value}</div>
+                          <div className="text-[10px] mt-0.5" style={{ color: s.up ? '#34d399' : '#f87171' }}>
+                            {s.up ? '↑' : '↓'} {s.up ? '+12%' : '-3%'}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                    {/* Chart */}
+                    <div className="rounded-lg p-3 h-28 flex items-end gap-0.5"
+                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      {[35,55,40,72,50,88,65,80,55,92,70,85,48,76].map((h, i) => (
+                        <div key={i} className="flex-1 flex flex-col-reverse rounded-sm overflow-hidden"
+                          style={{ height: `${h}%`, background: 'rgba(99,102,241,0.15)' }}>
+                          <div className="w-full rounded-sm" style={{ height: '60%', background: 'linear-gradient(180deg, #818cf8, #6366f1)' }} />
+                        </div>
+                      ))}
+                    </div>
+                    {/* Mini table */}
+                    <div className="space-y-1.5">
+                      {[
+                        { page: '/blog/getting-started', pct: 91 },
+                        { page: '/',                     pct: 68 },
+                        { page: '/pricing',              pct: 42 },
+                      ].map(r => (
+                        <div key={r.page} className="flex items-center gap-2">
+                          <div className="text-[10px] w-32 truncate" style={{ color: '#64748b' }}>{r.page}</div>
+                          <div className="flex-1 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                            <div className="h-1 rounded-full" style={{ width: `${r.pct}%`, background: 'linear-gradient(90deg, #6366f1, #8b5cf6)' }} />
+                          </div>
+                          <div className="text-[10px] w-6 text-right" style={{ color: '#475569' }}>{r.pct}%</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -271,41 +314,47 @@ function LandingPage() {
       </section>
 
       {/* ── Stats bar ── */}
-      <section id="stats" className="border-y border-gray-100 bg-gray-50 py-14 px-6">
-        <div className="mx-auto max-w-5xl grid grid-cols-2 md:grid-cols-4 gap-8">
-          {STATS.map(s => (
-            <div key={s.label} className="text-center">
-              <div className="text-4xl font-extrabold text-indigo-600 mb-1">{s.value}</div>
-              <div className="text-sm text-gray-500">{s.label}</div>
+      <section id="stats" className="py-16 px-6" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(99,102,241,0.04)' }}>
+        <div className="mx-auto max-w-5xl grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          {[
+            { value: '< 1KB',  label: 'Tracker script size' },
+            { value: '0',      label: 'Cookies used' },
+            { value: '100%',   label: 'Data ownership' },
+            { value: '∞',      label: 'Websites tracked' },
+          ].map(s => (
+            <div key={s.label}>
+              <div className="text-4xl font-extrabold lp-gradient-text mb-1">{s.value}</div>
+              <div className="text-sm" style={{ color: '#64748b' }}>{s.label}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* ── Features ── */}
-      <section id="features" className="py-24 px-6">
+      <section id="features" className="py-28 px-6">
         <div className="mx-auto max-w-6xl">
           <div className="text-center mb-16">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium"
+              style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
               Everything you need
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#f1f5f9' }}>
               Powerful analytics, zero complexity
             </h2>
-            <p className="mx-auto max-w-xl text-gray-500">
-              Every feature you need to understand your audience — without the bloat of enterprise tools or the privacy concerns of big tech analytics.
+            <p className="mx-auto max-w-lg" style={{ color: '#64748b' }}>
+              Every feature you need to understand your audience — without the bloat of enterprise
+              tools or the privacy concerns of big tech analytics.
             </p>
           </div>
-
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map(f => (
-              <div key={f.title}
-                className="group rounded-2xl border border-gray-100 bg-white p-6 hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-50 transition-all duration-200">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-200">
-                  <f.icon className="h-5 w-5" />
+              <div key={f.title} className="lp-card rounded-2xl p-6 space-y-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl"
+                  style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                  <f.icon className="h-5 w-5" style={{ color: '#818cf8' }} />
                 </div>
-                <h3 className="mb-2 font-semibold text-gray-900">{f.title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
+                <h3 className="font-semibold" style={{ color: '#e2e8f0' }}>{f.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: '#64748b' }}>{f.desc}</p>
               </div>
             ))}
           </div>
@@ -313,54 +362,43 @@ function LandingPage() {
       </section>
 
       {/* ── How it works ── */}
-      <section id="how-it-works" className="py-24 px-6 bg-gray-50">
-        <div className="mx-auto max-w-4xl text-center">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700">
-            Quick setup
+      <section id="how-it-works" className="py-28 px-6" style={{ background: 'rgba(255,255,255,0.015)' }}>
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-16">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium"
+              style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
+              Quick setup
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#f1f5f9' }}>
+              Up and running in minutes
+            </h2>
+            <p style={{ color: '#64748b' }}>Three steps from zero to tracking.</p>
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Up and running in minutes
-          </h2>
-          <p className="text-gray-500 mb-16 max-w-xl mx-auto">
-            Three steps from zero to tracking. No complex configuration, no external dependencies.
-          </p>
-
-          <div className="grid gap-8 md:grid-cols-3 text-left">
+          <div className="grid md:grid-cols-3 gap-6">
             {[
-              {
-                step: '01',
-                icon: Server,
-                title: 'Deploy the backend',
-                desc: 'Clone the repo, set your database URL and secret, run the migration and start with PM2.',
-                code: 'npm install && npx prisma db push && npm start',
-              },
-              {
-                step: '02',
-                icon: Globe,
-                title: 'Add your website',
-                desc: 'Log in to the dashboard and register any website you want to track. One click to get your snippet.',
-                code: 'domain: yourdomain.com',
-              },
-              {
-                step: '03',
-                icon: Zap,
-                title: 'Paste the snippet',
-                desc: 'Add one script tag to your site — that\'s it. Works with Next.js, plain HTML, WordPress, or any framework.',
-                code: '<script src="analytics.yourdomain.com/tracker.js" ... />',
-              },
+              { step:'01', icon: Server, title:'Deploy the backend',
+                desc:'Clone the repo, set your database URL and secret, run the migration and start with PM2.',
+                code:'npm install && npx prisma db push && npm start' },
+              { step:'02', icon: Globe, title:'Add your website',
+                desc:'Log in to the dashboard and register any website you want to track.',
+                code:'domain: yourdomain.com' },
+              { step:'03', icon: Zap, title:'Paste the snippet',
+                desc:"Add one script tag to your site. Works with Next.js, HTML, WordPress, or any framework.",
+                code:'<script src="analytics.domain.com/tracker.js" ... />' },
             ].map(s => (
-              <div key={s.step} className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+              <div key={s.step} className="lp-card rounded-2xl p-6 space-y-4">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-white">
-                    <s.icon className="h-5 w-5" />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl lp-btn-primary">
+                    <s.icon className="h-5 w-5 text-white" />
                   </div>
-                  <span className="text-4xl font-black text-gray-100">{s.step}</span>
+                  <span className="text-4xl font-black" style={{ color: 'rgba(255,255,255,0.04)' }}>{s.step}</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">{s.title}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
+                  <h3 className="font-semibold mb-1" style={{ color: '#e2e8f0' }}>{s.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: '#64748b' }}>{s.desc}</p>
                 </div>
-                <code className="block rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 text-xs text-gray-600 break-all">
+                <code className="block rounded-lg px-3 py-2 text-xs break-all"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: '#94a3b8' }}>
                   {s.code}
                 </code>
               </div>
@@ -369,91 +407,100 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ── Privacy section ── */}
-      <section className="py-24 px-6">
+      {/* ── Privacy ── */}
+      <section id="privacy" className="py-28 px-6">
         <div className="mx-auto max-w-5xl">
-          <div className="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-700 p-10 md:p-16 flex flex-col md:flex-row items-center gap-10">
-            <div className="flex-1 text-white space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-sm font-medium text-white/90">
-                <Shield className="h-3.5 w-3.5" /> Privacy by design
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold">
-                Your data never leaves your server
-              </h2>
-              <p className="text-indigo-200 leading-relaxed">
-                Viewly uses no cookies, no fingerprinting, and no third-party services. All data is stored in your own PostgreSQL database. GDPR, CCPA, and PECR compliant out of the box.
-              </p>
-              <ul className="space-y-2">
-                {[
-                  'No cookies or persistent identifiers',
-                  'No data sold to third parties',
-                  'Configurable data retention',
-                  'Full GDPR compliance',
-                ].map(t => (
-                  <li key={t} className="flex items-center gap-2.5 text-sm text-indigo-100">
-                    <Check className="h-4 w-4 text-green-300 shrink-0" /> {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="flex-shrink-0 grid grid-cols-2 gap-4 text-center">
-              {[
-                { icon: Shield, label: 'GDPR Ready'    },
-                { icon: Lock,   label: 'No Cookies'    },
-                { icon: Server, label: 'Self-hosted'   },
-                { icon: TrendingUp, label: 'Open Source' },
-              ].map(({ icon: Icon, label }) => (
-                <div key={label} className="flex flex-col items-center gap-2 rounded-2xl bg-white/10 p-5 text-white min-w-[100px]">
-                  <Icon className="h-6 w-6 text-indigo-200" />
-                  <span className="text-xs font-medium text-indigo-100">{label}</span>
+          <div className="relative rounded-3xl overflow-hidden p-10 md:p-16"
+            style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.15) 100%)', border: '1px solid rgba(99,102,241,0.3)' }}>
+            <div className="lp-noise" />
+            <div className="absolute" style={{
+              width: 400, height: 400, borderRadius: '50%',
+              top: -100, right: -100,
+              background: 'radial-gradient(circle, rgba(139,92,246,0.25) 0%, transparent 70%)',
+              filter: 'blur(40px)', pointerEvents: 'none',
+            }} />
+            <div className="relative flex flex-col md:flex-row items-start gap-12">
+              <div className="flex-1 space-y-5">
+                <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: '#c4b5fd' }}>
+                  <Shield className="h-3.5 w-3.5" /> Cookie-free & privacy-friendly
                 </div>
-              ))}
+                <h2 className="text-3xl md:text-4xl font-bold" style={{ color: '#f1f5f9' }}>
+                  Your data never leaves your server
+                </h2>
+                <p className="leading-relaxed" style={{ color: '#a5b4fc' }}>
+                  Viewly uses no cookies and no fingerprinting. All analytics data is stored in your
+                  own PostgreSQL database on your own server — no third-party services ever see your
+                  visitors' data. Because no cookies are used, you don't need a cookie consent banner.
+                </p>
+                <ul className="space-y-2">
+                  {[
+                    'No cookies or persistent identifiers',
+                    'No data sent to third parties',
+                    'Configurable data retention periods',
+                    'No cookie consent banner needed for analytics',
+                  ].map(t => (
+                    <li key={t} className="flex items-center gap-2.5 text-sm" style={{ color: '#c4b5fd' }}>
+                      <Check className="h-4 w-4 text-emerald-400 shrink-0" /> {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="shrink-0 grid grid-cols-2 gap-3">
+                {[
+                  { icon: Shield,     label: 'No Cookies'  },
+                  { icon: Lock,       label: 'No Tracking' },
+                  { icon: Server,     label: 'Self-hosted' },
+                  { icon: TrendingUp, label: 'Open Source' },
+                ].map(({ icon: Icon, label }) => (
+                  <div key={label} className="flex flex-col items-center gap-2 rounded-2xl p-5 min-w-[100px]"
+                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <Icon className="h-6 w-6" style={{ color: '#a5b4fc' }} />
+                    <span className="text-xs font-medium" style={{ color: '#c4b5fd' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ── CTA ── */}
-      <section className="py-24 px-6 bg-gray-50">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+      <section className="py-28 px-6 text-center" style={{ background: 'rgba(255,255,255,0.015)' }}>
+        <div className="mx-auto max-w-2xl space-y-6">
+          <h2 className="text-3xl md:text-4xl font-bold" style={{ color: '#f1f5f9' }}>
             Ready to own your analytics?
           </h2>
-          <p className="text-gray-500 mb-10">
-            Deploy Viewly on your own server and start tracking in minutes. Free forever, open source, no usage limits.
+          <p style={{ color: '#64748b' }}>
+            Deploy Viewly on your own server and start tracking in minutes.
+            Free forever, open source, no usage limits.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <a href="/login"
-              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
+              className="lp-btn-primary flex items-center gap-2 rounded-xl px-8 py-3.5 text-base font-semibold text-white lp-glow">
               Get started now <ArrowRight className="h-4 w-4" />
             </a>
-            <a href="https://github.com/rth1972/web-analytics" target="_blank"
-              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-8 py-3.5 text-base font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-              </svg>
-              Star on GitHub
+            <a href={GH} target="_blank"
+              className="lp-btn-ghost flex items-center gap-2 rounded-xl px-8 py-3.5 text-base font-semibold text-white">
+              <GithubIcon /> Star on GitHub
             </a>
           </div>
         </div>
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-gray-100 bg-white py-12 px-6">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-6">
-              <ViewlyWordmark />
-              <span className="text-sm text-gray-400">
-                Self-hosted analytics for modern teams
-              </span>
-            </div>
-            <div className="flex items-center gap-6 text-sm text-gray-400">
-              <a href="/login"    className="hover:text-gray-600 transition-colors">Sign in</a>
-              <a href="https://github.com/rth1972/web-analytics" target="_blank"
-                className="hover:text-gray-600 transition-colors">GitHub</a>
-              <span>© {new Date().getFullYear()} Viewly</span>
-            </div>
+      <footer className="py-12 px-6" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="mx-auto max-w-6xl flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <Logo size={24} dark />
+            <span className="font-semibold text-white">Viewly</span>
+            <span className="text-sm" style={{ color: '#334155' }}>·</span>
+            <span className="text-sm" style={{ color: '#475569' }}>Self-hosted analytics</span>
+          </div>
+          <div className="flex items-center gap-6 text-sm" style={{ color: '#475569' }}>
+            <a href="/login" className="hover:text-white transition-colors">Sign in</a>
+            <a href={GH} target="_blank" className="hover:text-white transition-colors">GitHub</a>
+            <span>© {new Date().getFullYear()} Viewly</span>
           </div>
         </div>
       </footer>
@@ -570,12 +617,13 @@ export default function Dashboard() {
       .catch(() => setIsAuthenticated(false));
   }, []);
 
-  if (isAuthenticated === false) return <LandingPage />;
   if (isAuthenticated === null) return (
     <div className="flex h-screen items-center justify-center">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
     </div>
   );
+
+  if (isAuthenticated === false) return <LandingPage />;
 
   return <DashboardContent />;
 }

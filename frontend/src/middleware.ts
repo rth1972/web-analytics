@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const PUBLIC_PATHS = [
-  '/',
-  '/login',
-  '/register',
+// Exact matches — only these specific paths are public
+const PUBLIC_EXACT = ['/', '/login', '/register'];
+
+// Prefix matches — anything starting with these is public
+const PUBLIC_PREFIXES = [
   '/verify-email',
-  '/public',
+  '/public/',
+  '/privacy',
   '/api/auth/login',
   '/api/auth/logout',
 ];
@@ -20,13 +22,13 @@ function getSecret() {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Always allow public paths
-  if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
+  // Check exact public paths
+  if (PUBLIC_EXACT.includes(pathname)) {
     return NextResponse.next();
   }
 
-  // For root path, let the client-side handle auth
-  if (pathname === '/') {
+  // Check prefix public paths
+  if (PUBLIC_PREFIXES.some(p => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
@@ -48,7 +50,6 @@ export async function middleware(req: NextRequest) {
     headers.set('x-user-email', String(payload.email    ?? ''));
     headers.set('x-user-role',  String(payload.role     ?? ''));
 
-    // Protect admin routes
     if (pathname.startsWith('/admin') && payload.role !== 'ADMIN') {
       return NextResponse.redirect(new URL('/', req.url));
     }
